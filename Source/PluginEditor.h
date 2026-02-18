@@ -17,6 +17,7 @@ public:
 
 private:
     void timerCallback() override;
+    void updatePresetButtons();
 
     ShineAudioProcessor& audioProcessor;
 
@@ -25,10 +26,14 @@ private:
     shine::ShineKnob amountKnob{"Shine"};
     juce::ToggleButton bypassButton;
 
+    // Preset buttons
+    juce::TextButton presetAuto    { "Auto" };
+    juce::TextButton presetVocal   { "Vocal Clarity" };
+    juce::TextButton presetAcoustic{ "Acoustic Detail" };
+
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
 
-    // Simple level display
     float inputLevel = 0.0f;
     float outputLevel = 0.0f;
 
