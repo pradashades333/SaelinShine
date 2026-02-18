@@ -194,9 +194,9 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
 
     // ---- I/O Meters (staircase bars) ---------------------------------------
     const int bh[6]   = { 16, 22, 28, 36, 45, 56 };
-    const int bw      = 5;
-    const int bgap    = 3;
-    const int meterW  = 6 * bw + 5 * bgap;         // 45px
+    const int bw      = 4;   // spec: 4px bar width
+    const int bgap    = 3;   // spec: 3px gap
+    const int meterW  = 6 * bw + 5 * bgap;         // 39px
     const int meterBottomY = L::metersY + L::metersH - 16;
 
     auto dbToNorm = [](float level) -> float {
@@ -237,6 +237,10 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
 
     drawMeter(inMeterX,  inputLevel,  "INPUT");
     drawMeter(outMeterX, outputLevel, "OUTPUT");
+
+    // ---- Window border — spec: 1px solid rgba(201,168,102,0.2), 12px radius --
+    g.setColour(juce::Colour(0xffc9a866).withAlpha(0.2f));
+    g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), 12.0f, 1.0f);
 }
 
 // ---------------------------------------------------------------------------

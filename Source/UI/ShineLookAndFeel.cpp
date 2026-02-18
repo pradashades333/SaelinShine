@@ -3,8 +3,21 @@
 namespace shine {
 
 ShineLookAndFeel::ShineLookAndFeel() {
-    uiFont  = juce::Font("Segoe UI", 11.0f, juce::Font::plain);
-    logoFont = juce::Font("Segoe UI", 24.0f, juce::Font::bold);
+    // Load DM Sans (UI labels — spec: DM Sans 400, uppercase, 11px)
+    auto dmSansTf = juce::Typeface::createSystemTypefaceFor(
+        BinaryData::DMSansRegular_ttf, BinaryData::DMSansRegular_ttfSize);
+    if (dmSansTf != nullptr)
+        uiFont = juce::Font(dmSansTf).withHeight(11.0f);
+    else
+        uiFont = juce::Font("Segoe UI", 11.0f, juce::Font::plain);
+
+    // Load Cormorant Garamond Medium (logo — spec: Cormorant Garamond 500)
+    auto cgTf = juce::Typeface::createSystemTypefaceFor(
+        BinaryData::CormorantGaramondMedium_ttf, BinaryData::CormorantGaramondMedium_ttfSize);
+    if (cgTf != nullptr)
+        logoFont = juce::Font(cgTf).withHeight(20.0f);
+    else
+        logoFont = juce::Font("Georgia", 20.0f, juce::Font::plain);
 
     setColour(juce::ResizableWindow::backgroundColourId, ShineColours::bgDeep);
 }

@@ -7,6 +7,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # JUCE (git submodule)
 add_subdirectory(JUCE)
 
+# Embedded font resources
+juce_add_binary_data(SaelinShine_BinaryData SOURCES
+    Resources/fonts/CormorantGaramond-Medium.ttf
+    Resources/fonts/DMSans-Regular.ttf
+)
+
 # Plugin target
 juce_add_plugin(SaelinShine
     COMPANY_NAME "Saelin Audio"
@@ -57,6 +63,7 @@ target_link_libraries(SaelinShine
     PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp
+        SaelinShine_BinaryData
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
