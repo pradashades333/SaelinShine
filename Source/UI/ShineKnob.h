@@ -23,7 +23,7 @@ private:
     juce::Colour   indicatorCol;
     int            decimals;
 
-    static constexpr int knobSize    = 110;
+    static constexpr int knobSize    = 80;
     static constexpr int labelHeight = 18;
     static constexpr int valueHeight = 16;
 

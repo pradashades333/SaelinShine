@@ -23,23 +23,23 @@ namespace L {
     constexpr int adaptLabelY = 86;
     constexpr int adaptLabelH = 16;
 
-    // Knob area
+    // Knob area — spec: 80px outer diameter knobs, 40px label area below
     constexpr int knobAreaY = 104;
-    constexpr int knobAreaH = 150;  // 110px knob + 40px labels
-    constexpr int knobW     = 148;
+    constexpr int knobAreaH = 120;  // 80px knob + 40px labels
+    constexpr int knobW     = 130;
     constexpr int knobGap   = 24;
 
     // Separator lines
-    constexpr int sep1Y = 256;
-    constexpr int sep2Y = 313;
+    constexpr int sep1Y = 226;
+    constexpr int sep2Y = 283;
 
     // Adaptation bars section
-    constexpr int adaptBarsY = 259;
+    constexpr int adaptBarsY = 229;
     constexpr int adaptBarsH = 52;
 
     // I/O Meters section
-    constexpr int metersY = 316;
-    constexpr int metersH = 58;
+    constexpr int metersY = 286;
+    constexpr int metersH = 86;
 }
 
 // ---------------------------------------------------------------------------
@@ -193,11 +193,11 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
     drawAdaptBar(airBarX,  adaptAirScale,  accentAir,  "AIR");
 
     // ---- I/O Meters (staircase bars) ---------------------------------------
-    const int bh[6]   = { 12, 16, 21, 27, 34, 42 };
+    const int bh[6]   = { 16, 22, 28, 36, 45, 56 };
     const int bw      = 5;
     const int bgap    = 3;
     const int meterW  = 6 * bw + 5 * bgap;         // 45px
-    const int meterBottomY = L::metersY + L::metersH - 14;
+    const int meterBottomY = L::metersY + L::metersH - 16;
 
     auto dbToNorm = [](float level) -> float {
         return juce::jlimit(0.0f, 1.0f,
@@ -231,9 +231,9 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
                    juce::Justification::centred);
     };
 
-    // Space meters evenly across the 520px width
-    const int inMeterX  = W / 2 - 110 - meterW / 2;
-    const int outMeterX = W / 2 + 110 - meterW / 2;
+    // Closer to centre per user request
+    const int inMeterX  = W / 2 - 75 - meterW / 2;
+    const int outMeterX = W / 2 + 75 - meterW / 2;
 
     drawMeter(inMeterX,  inputLevel,  "INPUT");
     drawMeter(outMeterX, outputLevel, "OUTPUT");

@@ -21,10 +21,10 @@ void ShineLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int wid
     const float centreX = static_cast<float>(x) + static_cast<float>(width)  * 0.5f;
     const float centreY = static_cast<float>(y) + static_cast<float>(height) * 0.5f;
 
-    // Radii
-    const float outerR = static_cast<float>(juce::jmin(width, height)) * 0.5f - 2.0f;
-    const float bodyR  = outerR * 0.70f;    // inner circle radius
-    const float arcR   = outerR * 0.88f;    // arc track radius
+    // Radii — spec: 80px outer diameter, 56px inner diameter
+    const float outerR = static_cast<float>(juce::jmin(width, height)) * 0.5f - 1.0f;
+    const float bodyR  = outerR * 0.74f;    // ~56px body at 80px total
+    const float arcR   = outerR - 2.5f;     // arc sits just inside the outer edge
 
     // --- Body ---
     juce::ColourGradient bodyGrad(
@@ -33,9 +33,9 @@ void ShineLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int wid
     g.setGradientFill(bodyGrad);
     g.fillEllipse(centreX - bodyR, centreY - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
-    // Body border
-    g.setColour(ShineColours::accentGold.withAlpha(0.18f));
-    g.drawEllipse(centreX - bodyR, centreY - bodyR, bodyR * 2.0f, bodyR * 2.0f, 1.0f);
+    // Body border — spec: 2px solid #6b635a (textMuted)
+    g.setColour(ShineColours::textMuted.withAlpha(0.6f));
+    g.drawEllipse(centreX - bodyR, centreY - bodyR, bodyR * 2.0f, bodyR * 2.0f, 2.0f);
 
     // --- Arc track (full 270°) ---
     juce::Path trackArc;
@@ -56,31 +56,24 @@ void ShineLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int wid
                                                     juce::PathStrokeType::rounded));
     }
 
-    // --- Line indicator (spec: 3px × 16px, indicator colour) ---
+    // --- Line indicator — spec: 3px wide x 16px long ---
     const float angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle)
                         - juce::MathConstants<float>::halfPi;
-    const float lineInner = bodyR * 0.25f;
-    const float lineOuter = bodyR * 0.78f;
+    // Fixed 16px length, centred slightly inside the body
+    const float lineInner = bodyR * 0.11f;   // ~3px from centre at spec size
+    const float lineOuter = bodyR * 0.68f;   // lineOuter-lineInner ≈ 16px at spec size
 
     const float x1 = centreX + std::cos(angle) * lineInner;
     const float y1 = centreY + std::sin(angle) * lineInner;
     const float x2 = centreX + std::cos(angle) * lineOuter;
     const float y2 = centreY + std::sin(angle) * lineOuter;
 
-    // Soft glow behind indicator
-    g.setColour(indicatorColour.withAlpha(0.25f));
-    juce::Path glowLine;
-    glowLine.startNewSubPath(x1, y1);
-    glowLine.lineTo(x2, y2);
-    g.strokePath(glowLine, juce::PathStrokeType(5.0f, juce::PathStrokeType::curved,
-                                                 juce::PathStrokeType::rounded));
-
-    // Indicator line
+    // Indicator line — 3px stroke
     g.setColour(indicatorColour);
     juce::Path indLine;
     indLine.startNewSubPath(x1, y1);
     indLine.lineTo(x2, y2);
-    g.strokePath(indLine, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved,
+    g.strokePath(indLine, juce::PathStrokeType(3.0f, juce::PathStrokeType::curved,
                                                 juce::PathStrokeType::rounded));
 }
 
