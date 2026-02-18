@@ -4,37 +4,42 @@
 using namespace shine::ShineColours;
 
 // ---------------------------------------------------------------------------
-// Layout constants — all measurements in pixels, window is 520 x 380
+// Layout — portrait window, ~400 x 560 px
 // ---------------------------------------------------------------------------
-namespace layout {
-    constexpr int W = 520;
-    constexpr int H = 380;
+namespace L {
+    constexpr int W = 400;
+    constexpr int H = 560;
 
     // Header
-    constexpr int headerH  = 50;
+    constexpr int headerH = 50;
 
-    // Tabs
-    constexpr int tabY     = 56;
-    constexpr int tabH     = 28;
-    constexpr int tabW     = 140;
-    constexpr int tabGap   = 10;
+    // Tabs (pill-shaped buttons)
+    constexpr int tabY   = 58;
+    constexpr int tabH   = 30;
+    constexpr int tabW   = 136;
+    constexpr int tabGap = 12;
 
-    // "• ADAPTIVE PROCESSING" label
-    constexpr int adaptLabelY = 90;
+    // "• ADAPTIVE PROCESSING" indicator
+    constexpr int adaptLabelY = 96;
     constexpr int adaptLabelH = 18;
 
-    // Knobs — placed side by side, centred
-    constexpr int knobAreaY  = 108;
-    constexpr int knobAreaH  = 140;  // 90px knob + 50px labels
-    constexpr int knobW      = 150;  // component width per knob
+    // Knob area (two knobs side by side)
+    constexpr int knobAreaY = 116;
+    constexpr int knobAreaH = 165;  // 110px knob + 55px labels
+    constexpr int knobW     = 148;
+    constexpr int knobGap   = 16;
+
+    // Horizontal separators
+    constexpr int sep1Y = 287;   // below knobs
+    constexpr int sep2Y = 362;   // below adaptation
 
     // Adaptation bars section
-    constexpr int adaptBarsY  = 256;
-    constexpr int adaptBarsH  = 64;
+    constexpr int adaptBarsY  = 294;
+    constexpr int adaptBarsH  = 62;
 
-    // I/O Meters
-    constexpr int metersY    = 300;
-    constexpr int metersH    = 64;
+    // I/O Meters section
+    constexpr int metersY = 368;
+    constexpr int metersH = 160;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,28 +48,20 @@ ShineAudioProcessorEditor::ShineAudioProcessorEditor(ShineAudioProcessor& p)
 
     setLookAndFeel(&lookAndFeel);
 
-    // Knob children
     addAndMakeVisible(presenceKnob);
     addAndMakeVisible(airKnob);
 
-    // Bypass
     bypassButton.setButtonText("");
     addAndMakeVisible(bypassButton);
 
-    // Tabs — use setClickingTogglesState(false), we toggle manually
     for (auto* btn : { &tabVocalClarity, &tabAcousticDetail }) {
         btn->setClickingTogglesState(false);
         addAndMakeVisible(btn);
     }
 
-    tabVocalClarity.onClick = [this] {
-        applyPreset(0);
-    };
-    tabAcousticDetail.onClick = [this] {
-        applyPreset(1);
-    };
+    tabVocalClarity.onClick   = [this] { applyPreset(0); };
+    tabAcousticDetail.onClick = [this] { applyPreset(1); };
 
-    // APVTS attachments
     presenceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         audioProcessor.getAPVTS(), "presence", presenceKnob.getSlider());
     airAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -72,17 +69,14 @@ ShineAudioProcessorEditor::ShineAudioProcessorEditor(ShineAudioProcessor& p)
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         audioProcessor.getAPVTS(), "bypass", bypassButton);
 
-    // Determine initial tab highlight from current param values
+    // Set initial tab highlight
     float pres = audioProcessor.getAPVTS().getRawParameterValue("presence")->load();
     float air  = audioProcessor.getAPVTS().getRawParameterValue("air")->load();
-    if (std::abs(pres - 4.5f) < 0.05f && std::abs(air - 0.20f) < 0.05f)
-        selectedTab = 1;
-    else
-        selectedTab = 0;  // default to Vocal Clarity
+    selectedTab = (std::abs(pres - 4.5f) < 0.05f && std::abs(air - 0.20f) < 0.05f) ? 1 : 0;
     updateTabStates();
 
     startTimerHz(30);
-    setSize(layout::W, layout::H);
+    setSize(L::W, L::H);
 }
 
 ShineAudioProcessorEditor::~ShineAudioProcessorEditor() {
@@ -91,16 +85,13 @@ ShineAudioProcessorEditor::~ShineAudioProcessorEditor() {
 }
 
 // ---------------------------------------------------------------------------
-void ShineAudioProcessorEditor::applyPreset(int presetIndex) {
-    selectedTab = presetIndex;
+void ShineAudioProcessorEditor::applyPreset(int idx) {
+    selectedTab = idx;
     updateTabStates();
-
-    if (presetIndex == 0) {
-        // Vocal Clarity: P=3.0 / A=0.40
+    if (idx == 0) {
         audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(3.0);
         audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.40);
     } else {
-        // Acoustic Detail: P=4.5 / A=0.20 (provisional)
         audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(4.5);
         audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.20);
     }
@@ -115,8 +106,8 @@ void ShineAudioProcessorEditor::updateTabStates() {
 
 // ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::timerCallback() {
-    inputLevel    = audioProcessor.getInputLevel();
-    outputLevel   = audioProcessor.getOutputLevel();
+    inputLevel     = audioProcessor.getInputLevel();
+    outputLevel    = audioProcessor.getOutputLevel();
     adaptPresScale = audioProcessor.getAdaptPresenceScale();
     adaptAirScale  = audioProcessor.getAdaptAirScale();
     repaint();
@@ -127,146 +118,152 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
 
-    // --- Background ---
+    // ---- Background --------------------------------------------------------
     g.fillAll(bgDeep);
 
-    // Subtle warm radial glow from center
-    juce::ColourGradient centerGlow(
-        accentGold.withAlpha(0.04f),
-        W * 0.5f, H * 0.45f,
-        juce::Colours::transparentBlack,
-        W * 0.5f, H * 0.45f + 180.0f, true);
-    g.setGradientFill(centerGlow);
+    // Subtle warm centre glow
+    juce::ColourGradient glow(accentGold.withAlpha(0.035f),
+                               W * 0.5f, H * 0.40f,
+                               juce::Colours::transparentBlack,
+                               W * 0.5f, H * 0.40f + 200.0f, true);
+    g.setGradientFill(glow);
     g.fillRect(getLocalBounds());
 
-    // --- Header ---
+    // ---- Header ------------------------------------------------------------
     g.setColour(juce::Colour(0xff070605));
-    g.fillRect(0, 0, W, layout::headerH);
-    g.setColour(accentGold.withAlpha(0.12f));
-    g.fillRect(0, layout::headerH - 1, W, 1);
+    g.fillRect(0, 0, W, L::headerH);
+    g.setColour(accentGold.withAlpha(0.15f));
+    g.fillRect(0, L::headerH - 1, W, 1);
 
-    // Logo: "SAELIN"
+    // "SAELIN" logo
     g.setColour(textPrimary);
-    g.setFont(lookAndFeel.getLogoFont(18.0f));
-    g.drawText("SAELIN", 18, 15, 90, 22, juce::Justification::centredLeft);
+    g.setFont(lookAndFeel.getLogoFont(20.0f));
+    g.drawText("SAELIN", 18, 14, 100, 24, juce::Justification::centredLeft);
 
-    // "SHINE" subtitle
+    // "SHINE" sub-label
     g.setColour(textSecondary);
-    g.setFont(lookAndFeel.getUIFont(9.5f));
-    g.drawText("SHINE", 112, 19, 50, 14, juce::Justification::centredLeft);
+    g.setFont(lookAndFeel.getUIFont(10.0f));
+    g.drawText("SHINE", 122, 18, 52, 16, juce::Justification::centredLeft);
 
-    // --- "• ADAPTIVE PROCESSING" label ---
+    // ---- "• ADAPTIVE PROCESSING" -------------------------------------------
+    const float dotX = W * 0.5f - 82.0f;
+    const float dotY = L::adaptLabelY + L::adaptLabelH * 0.5f - 2.5f;
     g.setColour(accentGold);
-    g.fillEllipse(W * 0.5f - 70.0f, static_cast<float>(layout::adaptLabelY) + 5.0f, 5.0f, 5.0f);
+    g.fillEllipse(dotX, dotY, 5.0f, 5.0f);
+
     g.setColour(textMuted);
     g.setFont(lookAndFeel.getUIFont(9.0f));
     g.drawText("ADAPTIVE PROCESSING",
-               static_cast<int>(W * 0.5f) - 60, layout::adaptLabelY, 130, layout::adaptLabelH,
-               juce::Justification::centredLeft);
+               static_cast<int>(dotX) + 9, L::adaptLabelY,
+               172, L::adaptLabelH, juce::Justification::centredLeft);
 
-    // --- ADAPTATION section ---
-    const int barSectionX = 80;
-    const int barSectionW = W - 160;
-    const int barY0 = layout::adaptBarsY + 18;
-    const int barH  = 5;
-    const int barSpacing = 22;
+    // ---- Separator lines ---------------------------------------------------
+    g.setColour(bgCard.withAlpha(0.8f));
+    g.fillRect(0, L::sep1Y, W, 1);
+    g.fillRect(0, L::sep2Y, W, 1);
 
-    // Section label
+    // ---- ADAPTATION section ------------------------------------------------
+    // Title
     g.setColour(textMuted);
     g.setFont(lookAndFeel.getUIFont(8.5f));
-    g.drawText("ADAPTATION", 0, layout::adaptBarsY, W, 14, juce::Justification::centred);
+    g.drawText("ADAPTATION", 0, L::adaptBarsY + 2, W, 14, juce::Justification::centred);
 
-    // Thin separator
-    g.setColour(bgCard);
-    g.fillRect(barSectionX, layout::adaptBarsY + 14, barSectionW, 1);
+    // Two horizontal bars, side by side
+    const int barW  = 100;   // width of each bar track
+    const int barH  = 5;
+    const int barGapX = 16;  // gap between the two bars
+    const int barsBlockW = barW * 2 + barGapX;  // 216px
+    const int barsLeft = (W - barsBlockW) / 2;   // 92px
+    const int presBarX = barsLeft;
+    const int airBarX  = barsLeft + barW + barGapX;
+    const int barY     = L::adaptBarsY + 22;
 
-    // Helper: draw one adaptation bar
-    auto drawAdaptBar = [&](int bY, float fillFraction, juce::Colour barColour,
-                             const juce::String& barLabel) {
-        // Track
+    auto drawAdaptBar = [&](int bx, float fill, juce::Colour barColour, const juce::String& lbl) {
         g.setColour(bgCard);
-        g.fillRoundedRectangle(static_cast<float>(barSectionX), static_cast<float>(bY),
-                                static_cast<float>(barSectionW), static_cast<float>(barH), 2.5f);
-        // Fill
-        int fillW = static_cast<int>(barSectionW * juce::jlimit(0.0f, 1.0f, fillFraction));
-        if (fillW > 0) {
-            g.setColour(barColour.withAlpha(0.8f));
-            g.fillRoundedRectangle(static_cast<float>(barSectionX), static_cast<float>(bY),
-                                    static_cast<float>(fillW), static_cast<float>(barH), 2.5f);
+        g.fillRoundedRectangle(static_cast<float>(bx), static_cast<float>(barY),
+                                static_cast<float>(barW), static_cast<float>(barH), 2.5f);
+        int fw = static_cast<int>(juce::jlimit(0.0f, 1.0f, fill) * barW);
+        if (fw > 0) {
+            g.setColour(barColour.withAlpha(0.85f));
+            g.fillRoundedRectangle(static_cast<float>(bx), static_cast<float>(barY),
+                                    static_cast<float>(fw), static_cast<float>(barH), 2.5f);
         }
-        // Label
         g.setColour(textMuted);
         g.setFont(lookAndFeel.getUIFont(8.0f));
-        g.drawText(barLabel, barSectionX - 70, bY - 1, 65, barH + 2,
-                   juce::Justification::centredRight);
+        g.drawText(lbl, bx, barY + barH + 6, barW, 12, juce::Justification::centred);
     };
 
-    drawAdaptBar(barY0,              adaptPresScale, accentGold, "PRESENCE");
-    drawAdaptBar(barY0 + barSpacing, adaptAirScale,  accentAir,  "AIR");
+    drawAdaptBar(presBarX, adaptPresScale, accentGold, "PRESENCE");
+    drawAdaptBar(airBarX,  adaptAirScale,  accentAir,  "AIR");
 
-    // --- I/O Meters (6-segment LED style) ---
-    const int segCount   = 6;
-    const int segW       = 4;
-    const int segH       = 8;
-    const int segGap     = 3;
-    const int meterTotalH = segCount * (segH + segGap) - segGap;
-    const int meterTotalW = segW;
-
-    // Left meter (INPUT) — centred around x = W/2 - 70
-    const int inMeterX  = W / 2 - 78;
-    const int outMeterX = W / 2 + 78 - segW;
-    const int meterTopY = layout::metersY + (layout::metersH - meterTotalH - 14) / 2;
+    // ---- I/O Meters (staircase bars) ---------------------------------------
+    // 6 bars with increasing heights (left = short, right = tall)
+    const int bh[6] = { 18, 24, 30, 38, 47, 58 };   // bar heights in px
+    const int bw    = 5;                              // bar width
+    const int bgap  = 3;                              // gap between bars
+    const int meterW = 6 * bw + 5 * bgap;            // 45px total
+    const int meterSpacing = 180;                     // centre-to-centre distance
+    const int meterBottomY = L::metersY + L::metersH - 26;
 
     auto dbToNorm = [](float level) -> float {
         return juce::jlimit(0.0f, 1.0f,
             (20.0f * std::log10(juce::jmax(0.00001f, level)) + 48.0f) / 48.0f);
     };
 
-    auto drawMeter = [&](int mx, float level, juce::Colour colour, const juce::String& mLabel) {
+    auto drawMeter = [&](int leftX, float level, const juce::String& lbl) {
         float norm = dbToNorm(level);
-        int litSegs = static_cast<int>(norm * segCount + 0.5f);
 
-        for (int s = 0; s < segCount; ++s) {
-            // s=0 is bottom, s=segCount-1 is top
-            int sy = meterTopY + (segCount - 1 - s) * (segH + segGap);
-            bool lit = s < litSegs;
+        for (int b = 0; b < 6; ++b) {
+            const int bx    = leftX + b * (bw + bgap);
+            const int bMaxH = bh[b];
+            const int bTopY = meterBottomY - bMaxH;
 
-            juce::Colour segCol;
-            if (lit) {
-                segCol = (s == segCount - 1) ? accentCopper : colour;  // top = copper/clip
-            } else {
-                segCol = bgCard;
+            // Background (full height of this bar, dark)
+            g.setColour(bgCard);
+            g.fillRoundedRectangle(static_cast<float>(bx), static_cast<float>(bTopY),
+                                    static_cast<float>(bw), static_cast<float>(bMaxH), 1.5f);
+
+            // Fill from bottom
+            int fillH = static_cast<int>(norm * bMaxH);
+            if (fillH > 0) {
+                bool isClip = (b == 5 && norm > 0.87f);
+                g.setColour(isClip ? accentCopper : accentGold);
+                g.fillRoundedRectangle(static_cast<float>(bx),
+                                        static_cast<float>(meterBottomY - fillH),
+                                        static_cast<float>(bw), static_cast<float>(fillH), 1.5f);
             }
-            g.setColour(segCol);
-            g.fillRoundedRectangle(static_cast<float>(mx), static_cast<float>(sy),
-                                    static_cast<float>(segW), static_cast<float>(segH), 1.5f);
         }
 
-        // Meter label below
+        // Label below
         g.setColour(textMuted);
-        g.setFont(lookAndFeel.getUIFont(8.0f));
-        g.drawText(mLabel, mx - 16, meterTopY + meterTotalH + 4, segW + 32, 12,
+        g.setFont(lookAndFeel.getUIFont(8.5f));
+        g.drawText(lbl, leftX - 10, meterBottomY + 6, meterW + 20, 12,
                    juce::Justification::centred);
     };
 
-    drawMeter(inMeterX,  inputLevel,  accentGold, "INPUT");
-    drawMeter(outMeterX, outputLevel, accentGold, "OUTPUT");
+    const int inMeterX  = W / 2 - meterSpacing / 2 - meterW / 2;
+    const int outMeterX = W / 2 + meterSpacing / 2 - meterW / 2;
+
+    drawMeter(inMeterX,  inputLevel,  "INPUT");
+    drawMeter(outMeterX, outputLevel, "OUTPUT");
 }
 
 // ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::resized() {
     const int W = getWidth();
 
-    // Bypass button — top right, gold circle
+    // Bypass button — top right corner
     bypassButton.setBounds(W - 46, 11, 28, 28);
 
-    // Tabs — centred in row
-    const int tabRowX = (W - (layout::tabW * 2 + layout::tabGap)) / 2;
-    tabVocalClarity.setBounds  (tabRowX,                         layout::tabY, layout::tabW, layout::tabH);
-    tabAcousticDetail.setBounds(tabRowX + layout::tabW + layout::tabGap, layout::tabY, layout::tabW, layout::tabH);
+    // Tabs — centred
+    const int tabRowW  = L::tabW * 2 + L::tabGap;
+    const int tabStartX = (W - tabRowW) / 2;
+    tabVocalClarity.setBounds  (tabStartX,              L::tabY, L::tabW, L::tabH);
+    tabAcousticDetail.setBounds(tabStartX + L::tabW + L::tabGap, L::tabY, L::tabW, L::tabH);
 
-    // Knobs — side by side, centred
-    const int knobsX = (W - layout::knobW * 2 - 20) / 2;
-    presenceKnob.setBounds(knobsX,                     layout::knobAreaY, layout::knobW, layout::knobAreaH);
-    airKnob.setBounds     (knobsX + layout::knobW + 20, layout::knobAreaY, layout::knobW, layout::knobAreaH);
+    // Knobs — two side by side, centred
+    const int twoKnobsW = L::knobW * 2 + L::knobGap;
+    const int knobStartX = (W - twoKnobsW) / 2;
+    presenceKnob.setBounds(knobStartX,                  L::knobAreaY, L::knobW, L::knobAreaH);
+    airKnob.setBounds     (knobStartX + L::knobW + L::knobGap, L::knobAreaY, L::knobW, L::knobAreaH);
 }
