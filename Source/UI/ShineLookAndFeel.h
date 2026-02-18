@@ -4,14 +4,21 @@
 
 namespace shine {
 
-// Clean, minimal color palette
+// Warm gold color palette matching the Saelin Shine spec
 namespace ShineColours {
-    const juce::Colour bgDark(0xff0c0c0c);
-    const juce::Colour bgCard(0xff1a1a1a);
-    const juce::Colour accentBlue(0xff5ba4e6);      // Bright blue for "shine"
-    const juce::Colour accentCyan(0xff4ecdc4);      // Teal accent
-    const juce::Colour textPrimary(0xffe8e8e8);
-    const juce::Colour textMuted(0xff666666);
+    const juce::Colour bgDeep       (0xff0a0908);
+    const juce::Colour bgWarm       (0xff151210);
+    const juce::Colour bgCard       (0xff1a1714);
+    const juce::Colour accentGold   (0xffc9a866);
+    const juce::Colour accentCopper (0xffb87333);
+    const juce::Colour accentAir    (0xffa8c4d4);
+    const juce::Colour textPrimary  (0xfff5f0eb);
+    const juce::Colour textSecondary(0xffa89f94);
+    const juce::Colour textMuted    (0xff6b635a);
+    // Aliases used in older code paths
+    const juce::Colour bgDark = bgDeep;
+    const juce::Colour accentBlue = accentAir;
+    const juce::Colour accentCyan = accentGold;
 }
 
 class ShineLookAndFeel : public juce::LookAndFeel_V4 {
@@ -25,6 +32,15 @@ public:
     void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
                           bool shouldDrawButtonAsHighlighted,
                           bool shouldDrawButtonAsDown) override;
+
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                               const juce::Colour& backgroundColour,
+                               bool shouldDrawButtonAsHighlighted,
+                               bool shouldDrawButtonAsDown) override;
+
+    void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                        bool shouldDrawButtonAsHighlighted,
+                        bool shouldDrawButtonAsDown) override;
 
     juce::Font getUIFont(float height) const;
     juce::Font getLogoFont(float height) const;

@@ -7,7 +7,9 @@ namespace shine {
 
 class ShineKnob : public juce::Component {
 public:
-    ShineKnob(const juce::String& name);
+    // indicatorColour: arc + indicator line colour (gold for Presence, muted blue for Air)
+    // numDecimals: how many decimal places to show below the knob (1 for Presence, 2 for Air)
+    ShineKnob(const juce::String& label, juce::Colour indicatorColour, int numDecimals = 2);
     ~ShineKnob() override = default;
 
     void paint(juce::Graphics& g) override;
@@ -16,11 +18,12 @@ public:
     juce::Slider& getSlider() { return slider; }
 
 private:
-    juce::Slider slider;
-    juce::String labelText;
-    juce::String valueText;
+    juce::Slider   slider;
+    juce::String   labelText;
+    juce::Colour   indicatorCol;
+    int            decimals;
 
-    static constexpr int knobSize = 100;
+    static constexpr int knobSize    = 90;
     static constexpr int labelHeight = 18;
     static constexpr int valueHeight = 16;
 

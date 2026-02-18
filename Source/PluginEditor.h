@@ -17,25 +17,35 @@ public:
 
 private:
     void timerCallback() override;
-    void updatePresetButtons();
+    void applyPreset(int presetIndex);  // 0 = Vocal Clarity, 1 = Acoustic Detail
+    void updateTabStates();
 
     ShineAudioProcessor& audioProcessor;
 
     shine::ShineLookAndFeel lookAndFeel;
 
-    shine::ShineKnob amountKnob{"Shine"};
+    // Knobs (presence = gold, air = muted blue)
+    shine::ShineKnob presenceKnob { "Presence", shine::ShineColours::accentGold, 1 };
+    shine::ShineKnob airKnob      { "Air",      shine::ShineColours::accentAir,  2 };
+
     juce::ToggleButton bypassButton;
 
-    // Preset buttons
-    juce::TextButton presetAuto    { "Auto" };
-    juce::TextButton presetVocal   { "Vocal Clarity" };
-    juce::TextButton presetAcoustic{ "Acoustic Detail" };
+    // Preset tabs — pill style, toggle state drives highlight
+    juce::TextButton tabVocalClarity   { "Vocal Clarity"   };
+    juce::TextButton tabAcousticDetail { "Acoustic Detail" };
 
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> presenceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> airAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
 
-    float inputLevel = 0.0f;
-    float outputLevel = 0.0f;
+    // Values read from processor each timer tick
+    float inputLevel     = 0.0f;
+    float outputLevel    = 0.0f;
+    float adaptPresScale = 0.5f;
+    float adaptAirScale  = 0.5f;
+
+    // Which tab is visually active (-1 = none, 0 = Vocal Clarity, 1 = Acoustic Detail)
+    int selectedTab = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ShineAudioProcessorEditor)
 };

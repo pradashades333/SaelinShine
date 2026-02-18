@@ -3,7 +3,7 @@
 
 ShineAudioProcessor::ShineAudioProcessor()
     : AudioProcessor(BusesProperties()
-                     .withInput("Input", juce::AudioChannelSet::stereo(), true)
+                     .withInput ("Input",  juce::AudioChannelSet::stereo(), true)
                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       apvts(*this, nullptr, "Parameters", createParameters()) {
 }
@@ -13,14 +13,15 @@ ShineAudioProcessor::~ShineAudioProcessor() = default;
 juce::AudioProcessorValueTreeState::ParameterLayout ShineAudioProcessor::createParameters() {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Amount knob scales the ML or preset output
+    // Presence knob: 0.0 - 6.0, default 3.0 (Vocal Clarity starting point)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID("amount", 1), "Amount",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
+        juce::ParameterID("presence", 1), "Presence",
+        juce::NormalisableRange<float>(0.0f, 6.0f, 0.01f), 3.0f));
 
-    // Preset: 0=Auto (ML), 1=Vocal Clarity, 2=Acoustic Detail
-    params.push_back(std::make_unique<juce::AudioParameterInt>(
-        juce::ParameterID("preset", 1), "Preset", 0, 2, 0));
+    // Air knob: 0.0 - 1.0, default 0.40 (Vocal Clarity starting point)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID("air", 1), "Air",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.40f));
 
     // Bypass
     params.push_back(std::make_unique<juce::AudioParameterBool>(
@@ -37,21 +38,21 @@ void ShineAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) 
     modelInference.resetSmoothing();
 }
 
-void ShineAudioProcessor::releaseResources() {
-}
+void ShineAudioProcessor::releaseResources() {}
 
-void ShineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
+void ShineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
+                                        juce::MidiBuffer& midiMessages) {
     juce::ignoreUnused(midiMessages);
     juce::ScopedNoDenormals noDenormals;
 
     const int numChannels = buffer.getNumChannels();
-    const int numSamples = buffer.getNumSamples();
+    const int numSamples  = buffer.getNumSamples();
 
-    float amount = apvts.getRawParameterValue("amount")->load();
-    int presetIndex = static_cast<int>(apvts.getRawParameterValue("preset")->load());
-    bool bypass = apvts.getRawParameterValue("bypass")->load() > 0.5f;
+    float presenceKnob = apvts.getRawParameterValue("presence")->load();
+    float airKnob      = apvts.getRawParameterValue("air")->load();
+    bool  bypass       = apvts.getRawParameterValue("bypass")->load() > 0.5f;
 
-    // Calculate input level
+    // Input level
     float inLevel = 0.0f;
     for (int ch = 0; ch < numChannels; ++ch)
         inLevel = juce::jmax(inLevel, buffer.getMagnitude(ch, 0, numSamples));
@@ -62,45 +63,42 @@ void ShineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
         return;
     }
 
-    // Keep dry buffer for safety
+    // Dry buffer for safety
     juce::AudioBuffer<float> dryBuffer;
     dryBuffer.makeCopyOf(buffer);
 
-    // Determine DSP params: preset overrides ML, Auto uses ML
+    // ML inference - always runs, outputs adaptive scales (0-1)
+    // Quiet passages -> scale near 1.0 (more boost)
+    // Loud passages  -> scale near 0.0-0.4 (less boost)
+    const float* leftRead = buffer.getReadPointer(0);
+    auto features = featureExtractor.extract(leftRead, numSamples);
+    shine::ShineParams mlScales = modelInference.getSmoothedParams(features);
+
+    // Clamp to 0-1 (model outputs treated as adaptive scales)
+    float presScale = juce::jlimit(0.0f, 1.0f, mlScales.presence);
+    float airScale  = juce::jlimit(0.0f, 1.0f, mlScales.air);
+
+    adaptPresenceScale.store(presScale);
+    adaptAirScale.store(airScale);
+
+    // Final DSP params: knob value x adaptive scale
     shine::ShineParams scaledParams;
-    auto preset = static_cast<shine::Preset>(presetIndex);
-
-    if (preset == shine::Preset::Auto) {
-        // ML-driven: extract features and predict
-        const float* leftRead = buffer.getReadPointer(0);
-        auto features = featureExtractor.extract(leftRead, numSamples);
-        shine::ShineParams mlParams = modelInference.getSmoothedParams(features);
-        scaledParams.presence = mlParams.presence * amount;
-        scaledParams.air = mlParams.air * amount;
-    } else {
-        // Fixed preset values scaled by amount knob
-        shine::ShineParams presetParams = shine::getPresetParams(preset);
-        scaledParams.presence = presetParams.presence * amount;
-        scaledParams.air = presetParams.air * amount;
-    }
-
-    currentPresence.store(scaledParams.presence);
-    currentAir.store(scaledParams.air);
+    scaledParams.presence = presenceKnob * presScale;
+    scaledParams.air      = airKnob      * airScale;
 
     dspChainL.setParams(scaledParams);
     dspChainR.setParams(scaledParams);
 
-    // Process audio
-    float* leftChannel = buffer.getWritePointer(0);
-    float* rightChannel = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
+    float* leftCh  = buffer.getWritePointer(0);
+    float* rightCh = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
     for (int i = 0; i < numSamples; ++i) {
-        leftChannel[i] = dspChainL.process(leftChannel[i]);
-        if (rightChannel)
-            rightChannel[i] = dspChainR.process(rightChannel[i]);
+        leftCh[i] = dspChainL.process(leftCh[i]);
+        if (rightCh)
+            rightCh[i] = dspChainR.process(rightCh[i]);
     }
 
-    // Safety: if output is NaN/inf, restore dry signal
+    // Safety: restore dry if output is NaN/inf
     bool outputBad = false;
     for (int ch = 0; ch < numChannels && !outputBad; ++ch) {
         const float* data = buffer.getReadPointer(ch);

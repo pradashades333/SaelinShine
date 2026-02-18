@@ -1,43 +1,88 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+using namespace shine::ShineColours;
+
+// ---------------------------------------------------------------------------
+// Layout constants — all measurements in pixels, window is 520 x 380
+// ---------------------------------------------------------------------------
+namespace layout {
+    constexpr int W = 520;
+    constexpr int H = 380;
+
+    // Header
+    constexpr int headerH  = 50;
+
+    // Tabs
+    constexpr int tabY     = 56;
+    constexpr int tabH     = 28;
+    constexpr int tabW     = 140;
+    constexpr int tabGap   = 10;
+
+    // "• ADAPTIVE PROCESSING" label
+    constexpr int adaptLabelY = 90;
+    constexpr int adaptLabelH = 18;
+
+    // Knobs — placed side by side, centred
+    constexpr int knobAreaY  = 108;
+    constexpr int knobAreaH  = 140;  // 90px knob + 50px labels
+    constexpr int knobW      = 150;  // component width per knob
+
+    // Adaptation bars section
+    constexpr int adaptBarsY  = 256;
+    constexpr int adaptBarsH  = 64;
+
+    // I/O Meters
+    constexpr int metersY    = 300;
+    constexpr int metersH    = 64;
+}
+
+// ---------------------------------------------------------------------------
 ShineAudioProcessorEditor::ShineAudioProcessorEditor(ShineAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p) {
 
     setLookAndFeel(&lookAndFeel);
 
-    addAndMakeVisible(amountKnob);
+    // Knob children
+    addAndMakeVisible(presenceKnob);
+    addAndMakeVisible(airKnob);
 
+    // Bypass
     bypassButton.setButtonText("");
     addAndMakeVisible(bypassButton);
 
-    // Preset buttons
-    for (auto* btn : { &presetAuto, &presetVocal, &presetAcoustic }) {
+    // Tabs — use setClickingTogglesState(false), we toggle manually
+    for (auto* btn : { &tabVocalClarity, &tabAcousticDetail }) {
         btn->setClickingTogglesState(false);
         addAndMakeVisible(btn);
     }
 
-    presetAuto.onClick = [this] {
-        audioProcessor.getAPVTS().getParameterAsValue("preset").setValue(0);
-        updatePresetButtons();
+    tabVocalClarity.onClick = [this] {
+        applyPreset(0);
     };
-    presetVocal.onClick = [this] {
-        audioProcessor.getAPVTS().getParameterAsValue("preset").setValue(1);
-        updatePresetButtons();
-    };
-    presetAcoustic.onClick = [this] {
-        audioProcessor.getAPVTS().getParameterAsValue("preset").setValue(2);
-        updatePresetButtons();
+    tabAcousticDetail.onClick = [this] {
+        applyPreset(1);
     };
 
-    amountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-        audioProcessor.getAPVTS(), "amount", amountKnob.getSlider());
+    // APVTS attachments
+    presenceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getAPVTS(), "presence", presenceKnob.getSlider());
+    airAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.getAPVTS(), "air", airKnob.getSlider());
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         audioProcessor.getAPVTS(), "bypass", bypassButton);
 
-    updatePresetButtons();
+    // Determine initial tab highlight from current param values
+    float pres = audioProcessor.getAPVTS().getRawParameterValue("presence")->load();
+    float air  = audioProcessor.getAPVTS().getRawParameterValue("air")->load();
+    if (std::abs(pres - 4.5f) < 0.05f && std::abs(air - 0.20f) < 0.05f)
+        selectedTab = 1;
+    else
+        selectedTab = 0;  // default to Vocal Clarity
+    updateTabStates();
+
     startTimerHz(30);
-    setSize(280, 360);
+    setSize(layout::W, layout::H);
 }
 
 ShineAudioProcessorEditor::~ShineAudioProcessorEditor() {
@@ -45,113 +90,183 @@ ShineAudioProcessorEditor::~ShineAudioProcessorEditor() {
     stopTimer();
 }
 
+// ---------------------------------------------------------------------------
+void ShineAudioProcessorEditor::applyPreset(int presetIndex) {
+    selectedTab = presetIndex;
+    updateTabStates();
+
+    if (presetIndex == 0) {
+        // Vocal Clarity: P=3.0 / A=0.40
+        audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(3.0);
+        audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.40);
+    } else {
+        // Acoustic Detail: P=4.5 / A=0.20 (provisional)
+        audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(4.5);
+        audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.20);
+    }
+}
+
+void ShineAudioProcessorEditor::updateTabStates() {
+    tabVocalClarity.setToggleState  (selectedTab == 0, juce::dontSendNotification);
+    tabAcousticDetail.setToggleState(selectedTab == 1, juce::dontSendNotification);
+    tabVocalClarity.repaint();
+    tabAcousticDetail.repaint();
+}
+
+// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::timerCallback() {
-    inputLevel = audioProcessor.getInputLevel();
-    outputLevel = audioProcessor.getOutputLevel();
-    // Sync preset button state if changed from DAW automation
-    updatePresetButtons();
+    inputLevel    = audioProcessor.getInputLevel();
+    outputLevel   = audioProcessor.getOutputLevel();
+    adaptPresScale = audioProcessor.getAdaptPresenceScale();
+    adaptAirScale  = audioProcessor.getAdaptAirScale();
     repaint();
 }
 
-void ShineAudioProcessorEditor::updatePresetButtons() {
-    int current = static_cast<int>(audioProcessor.getAPVTS().getRawParameterValue("preset")->load());
-    presetAuto.setColour(juce::TextButton::buttonColourId,
-        current == 0 ? shine::ShineColours::accentBlue : shine::ShineColours::bgCard);
-    presetVocal.setColour(juce::TextButton::buttonColourId,
-        current == 1 ? shine::ShineColours::accentBlue : shine::ShineColours::bgCard);
-    presetAcoustic.setColour(juce::TextButton::buttonColourId,
-        current == 2 ? shine::ShineColours::accentBlue : shine::ShineColours::bgCard);
-
-    presetAuto.setColour(juce::TextButton::textColourOffId,
-        current == 0 ? juce::Colours::black : shine::ShineColours::textMuted);
-    presetVocal.setColour(juce::TextButton::textColourOffId,
-        current == 1 ? juce::Colours::black : shine::ShineColours::textMuted);
-    presetAcoustic.setColour(juce::TextButton::textColourOffId,
-        current == 2 ? juce::Colours::black : shine::ShineColours::textMuted);
-}
-
+// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
-    g.fillAll(shine::ShineColours::bgDark);
+    const int W = getWidth();
+    const int H = getHeight();
 
-    // Subtle center glow
+    // --- Background ---
+    g.fillAll(bgDeep);
+
+    // Subtle warm radial glow from center
     juce::ColourGradient centerGlow(
-        shine::ShineColours::accentBlue.withAlpha(0.05f),
-        getWidth() / 2.0f, getHeight() / 2.0f - 20,
+        accentGold.withAlpha(0.04f),
+        W * 0.5f, H * 0.45f,
         juce::Colours::transparentBlack,
-        getWidth() / 2.0f, getHeight() / 2.0f + 120, true);
+        W * 0.5f, H * 0.45f + 180.0f, true);
     g.setGradientFill(centerGlow);
     g.fillRect(getLocalBounds());
 
-    // Header
-    g.setColour(juce::Colour(0xff0a0a0a));
-    g.fillRect(0, 0, getWidth(), 50);
-    g.setColour(shine::ShineColours::accentBlue.withAlpha(0.15f));
-    g.fillRect(0, 49, getWidth(), 1);
+    // --- Header ---
+    g.setColour(juce::Colour(0xff070605));
+    g.fillRect(0, 0, W, layout::headerH);
+    g.setColour(accentGold.withAlpha(0.12f));
+    g.fillRect(0, layout::headerH - 1, W, 1);
 
-    g.setColour(shine::ShineColours::textPrimary);
-    g.setFont(lookAndFeel.getLogoFont(20.0f));
-    g.drawText("SHINE", 16, 14, 100, 24, juce::Justification::centredLeft);
+    // Logo: "SAELIN"
+    g.setColour(textPrimary);
+    g.setFont(lookAndFeel.getLogoFont(18.0f));
+    g.drawText("SAELIN", 18, 15, 90, 22, juce::Justification::centredLeft);
 
-    g.setColour(shine::ShineColours::textMuted);
+    // "SHINE" subtitle
+    g.setColour(textSecondary);
+    g.setFont(lookAndFeel.getUIFont(9.5f));
+    g.drawText("SHINE", 112, 19, 50, 14, juce::Justification::centredLeft);
+
+    // --- "• ADAPTIVE PROCESSING" label ---
+    g.setColour(accentGold);
+    g.fillEllipse(W * 0.5f - 70.0f, static_cast<float>(layout::adaptLabelY) + 5.0f, 5.0f, 5.0f);
+    g.setColour(textMuted);
     g.setFont(lookAndFeel.getUIFont(9.0f));
-    g.drawText("BY SAELIN", 16, 34, 80, 12, juce::Justification::centredLeft);
+    g.drawText("ADAPTIVE PROCESSING",
+               static_cast<int>(W * 0.5f) - 60, layout::adaptLabelY, 130, layout::adaptLabelH,
+               juce::Justification::centredLeft);
 
-    // Level meters
-    const int meterWidth = 6;
-    const int meterHeight = 40;
-    const int meterY = getHeight() - 60;
+    // --- ADAPTATION section ---
+    const int barSectionX = 80;
+    const int barSectionW = W - 160;
+    const int barY0 = layout::adaptBarsY + 18;
+    const int barH  = 5;
+    const int barSpacing = 22;
 
-    g.setColour(shine::ShineColours::bgCard);
-    g.fillRoundedRectangle(30.0f, static_cast<float>(meterY),
-                            static_cast<float>(meterWidth), static_cast<float>(meterHeight), 3.0f);
-    float inNorm = juce::jlimit(0.0f, 1.0f, (20.0f * std::log10(juce::jmax(0.00001f, inputLevel)) + 48.0f) / 48.0f);
-    int inFill = static_cast<int>(meterHeight * inNorm);
-    if (inFill > 0) {
-        g.setColour(shine::ShineColours::accentCyan);
-        g.fillRoundedRectangle(30.0f, static_cast<float>(meterY + meterHeight - inFill),
-                                static_cast<float>(meterWidth), static_cast<float>(inFill), 3.0f);
-    }
+    // Section label
+    g.setColour(textMuted);
+    g.setFont(lookAndFeel.getUIFont(8.5f));
+    g.drawText("ADAPTATION", 0, layout::adaptBarsY, W, 14, juce::Justification::centred);
 
-    g.setColour(shine::ShineColours::bgCard);
-    g.fillRoundedRectangle(static_cast<float>(getWidth() - 30 - meterWidth), static_cast<float>(meterY),
-                            static_cast<float>(meterWidth), static_cast<float>(meterHeight), 3.0f);
-    float outNorm = juce::jlimit(0.0f, 1.0f, (20.0f * std::log10(juce::jmax(0.00001f, outputLevel)) + 48.0f) / 48.0f);
-    int outFill = static_cast<int>(meterHeight * outNorm);
-    if (outFill > 0) {
-        g.setColour(shine::ShineColours::accentBlue);
-        g.fillRoundedRectangle(static_cast<float>(getWidth() - 30 - meterWidth),
-                                static_cast<float>(meterY + meterHeight - outFill),
-                                static_cast<float>(meterWidth), static_cast<float>(outFill), 3.0f);
-    }
+    // Thin separator
+    g.setColour(bgCard);
+    g.fillRect(barSectionX, layout::adaptBarsY + 14, barSectionW, 1);
 
-    g.setColour(shine::ShineColours::textMuted);
-    g.setFont(lookAndFeel.getUIFont(8.0f));
-    g.drawText("IN",  24, getHeight() - 16, 20, 12, juce::Justification::centred);
-    g.drawText("OUT", getWidth() - 44, getHeight() - 16, 24, 12, juce::Justification::centred);
+    // Helper: draw one adaptation bar
+    auto drawAdaptBar = [&](int bY, float fillFraction, juce::Colour barColour,
+                             const juce::String& barLabel) {
+        // Track
+        g.setColour(bgCard);
+        g.fillRoundedRectangle(static_cast<float>(barSectionX), static_cast<float>(bY),
+                                static_cast<float>(barSectionW), static_cast<float>(barH), 2.5f);
+        // Fill
+        int fillW = static_cast<int>(barSectionW * juce::jlimit(0.0f, 1.0f, fillFraction));
+        if (fillW > 0) {
+            g.setColour(barColour.withAlpha(0.8f));
+            g.fillRoundedRectangle(static_cast<float>(barSectionX), static_cast<float>(bY),
+                                    static_cast<float>(fillW), static_cast<float>(barH), 2.5f);
+        }
+        // Label
+        g.setColour(textMuted);
+        g.setFont(lookAndFeel.getUIFont(8.0f));
+        g.drawText(barLabel, barSectionX - 70, bY - 1, 65, barH + 2,
+                   juce::Justification::centredRight);
+    };
 
-    // FREE badge
-    g.setColour(shine::ShineColours::accentCyan.withAlpha(0.8f));
-    g.setFont(lookAndFeel.getUIFont(8.0f));
-    juce::Rectangle<float> badge(getWidth() - 50.0f, 16.0f, 32.0f, 14.0f);
-    g.drawRoundedRectangle(badge, 4.0f, 1.0f);
-    g.drawText("FREE", badge.toNearestInt(), juce::Justification::centred);
+    drawAdaptBar(barY0,              adaptPresScale, accentGold, "PRESENCE");
+    drawAdaptBar(barY0 + barSpacing, adaptAirScale,  accentAir,  "AIR");
+
+    // --- I/O Meters (6-segment LED style) ---
+    const int segCount   = 6;
+    const int segW       = 4;
+    const int segH       = 8;
+    const int segGap     = 3;
+    const int meterTotalH = segCount * (segH + segGap) - segGap;
+    const int meterTotalW = segW;
+
+    // Left meter (INPUT) — centred around x = W/2 - 70
+    const int inMeterX  = W / 2 - 78;
+    const int outMeterX = W / 2 + 78 - segW;
+    const int meterTopY = layout::metersY + (layout::metersH - meterTotalH - 14) / 2;
+
+    auto dbToNorm = [](float level) -> float {
+        return juce::jlimit(0.0f, 1.0f,
+            (20.0f * std::log10(juce::jmax(0.00001f, level)) + 48.0f) / 48.0f);
+    };
+
+    auto drawMeter = [&](int mx, float level, juce::Colour colour, const juce::String& mLabel) {
+        float norm = dbToNorm(level);
+        int litSegs = static_cast<int>(norm * segCount + 0.5f);
+
+        for (int s = 0; s < segCount; ++s) {
+            // s=0 is bottom, s=segCount-1 is top
+            int sy = meterTopY + (segCount - 1 - s) * (segH + segGap);
+            bool lit = s < litSegs;
+
+            juce::Colour segCol;
+            if (lit) {
+                segCol = (s == segCount - 1) ? accentCopper : colour;  // top = copper/clip
+            } else {
+                segCol = bgCard;
+            }
+            g.setColour(segCol);
+            g.fillRoundedRectangle(static_cast<float>(mx), static_cast<float>(sy),
+                                    static_cast<float>(segW), static_cast<float>(segH), 1.5f);
+        }
+
+        // Meter label below
+        g.setColour(textMuted);
+        g.setFont(lookAndFeel.getUIFont(8.0f));
+        g.drawText(mLabel, mx - 16, meterTopY + meterTotalH + 4, segW + 32, 12,
+                   juce::Justification::centred);
+    };
+
+    drawMeter(inMeterX,  inputLevel,  accentGold, "INPUT");
+    drawMeter(outMeterX, outputLevel, accentGold, "OUTPUT");
 }
 
+// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::resized() {
-    bypassButton.setBounds(getWidth() - 90, 12, 22, 22);
+    const int W = getWidth();
 
-    const int knobWidth = 160;
-    const int knobHeight = 160;
-    amountKnob.setBounds((getWidth() - knobWidth) / 2, 58, knobWidth, knobHeight);
+    // Bypass button — top right, gold circle
+    bypassButton.setBounds(W - 46, 11, 28, 28);
 
-    // Preset buttons row — three equal buttons
-    const int btnY = 228;
-    const int btnH = 22;
-    const int pad = 8;
-    const int totalW = getWidth() - pad * 2;
-    const int btnW = (totalW - pad * 2) / 3;
+    // Tabs — centred in row
+    const int tabRowX = (W - (layout::tabW * 2 + layout::tabGap)) / 2;
+    tabVocalClarity.setBounds  (tabRowX,                         layout::tabY, layout::tabW, layout::tabH);
+    tabAcousticDetail.setBounds(tabRowX + layout::tabW + layout::tabGap, layout::tabY, layout::tabW, layout::tabH);
 
-    presetAuto.setBounds    (pad,               btnY, btnW, btnH);
-    presetVocal.setBounds   (pad + btnW + pad,  btnY, btnW, btnH);
-    presetAcoustic.setBounds(pad + btnW*2 + pad*2, btnY, btnW, btnH);
+    // Knobs — side by side, centred
+    const int knobsX = (W - layout::knobW * 2 - 20) / 2;
+    presenceKnob.setBounds(knobsX,                     layout::knobAreaY, layout::knobW, layout::knobAreaH);
+    airKnob.setBounds     (knobsX + layout::knobW + 20, layout::knobAreaY, layout::knobW, layout::knobAreaH);
 }

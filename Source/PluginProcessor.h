@@ -35,12 +35,13 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
-    float getInputLevel() const { return inputLevel.load(); }
+    float getInputLevel()  const { return inputLevel.load(); }
     float getOutputLevel() const { return outputLevel.load(); }
 
-    // Expose current ML params for UI meters
-    float getCurrentPresence() const { return currentPresence.load(); }
-    float getCurrentAir() const { return currentAir.load(); }
+    // Raw ML adaptive scales (0-1) for the UI adaptation meters
+    // High when quiet (more boost), low when loud (less boost)
+    float getAdaptPresenceScale() const { return adaptPresenceScale.load(); }
+    float getAdaptAirScale()      const { return adaptAirScale.load(); }
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
@@ -50,14 +51,13 @@ private:
     shine::ShineChain dspChainL;
     shine::ShineChain dspChainR;
 
-    // ML
     shine::ShineFeatureExtractor featureExtractor;
-    shine::ShineModelInference modelInference;
+    shine::ShineModelInference   modelInference;
 
-    std::atomic<float> inputLevel{0.0f};
-    std::atomic<float> outputLevel{0.0f};
-    std::atomic<float> currentPresence{0.0f};
-    std::atomic<float> currentAir{0.0f};
+    std::atomic<float> inputLevel       {0.0f};
+    std::atomic<float> outputLevel      {0.0f};
+    std::atomic<float> adaptPresenceScale{0.5f};
+    std::atomic<float> adaptAirScale    {0.5f};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ShineAudioProcessor)
 };
