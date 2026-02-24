@@ -13,33 +13,33 @@ namespace L {
     // Header
     constexpr int headerH = 50;
 
-    // Tabs
-    constexpr int tabY   = 54;
+    // Tabs — extra breathing room below header line
+    constexpr int tabY   = 64;
     constexpr int tabH   = 28;
     constexpr int tabW   = 148;
     constexpr int tabGap = 12;
 
     // "• ADAPTIVE PROCESSING" label
-    constexpr int adaptLabelY = 86;
+    constexpr int adaptLabelY = 96;
     constexpr int adaptLabelH = 16;
 
     // Knob area — spec: 80px outer diameter knobs, 40px label area below
-    constexpr int knobAreaY = 104;
+    constexpr int knobAreaY = 114;
     constexpr int knobAreaH = 120;  // 80px knob + 40px labels
     constexpr int knobW     = 130;
     constexpr int knobGap   = 24;
 
     // Separator lines
-    constexpr int sep1Y = 226;
-    constexpr int sep2Y = 283;
+    constexpr int sep1Y = 236;
+    constexpr int sep2Y = 293;
 
     // Adaptation bars section
-    constexpr int adaptBarsY = 229;
+    constexpr int adaptBarsY = 239;
     constexpr int adaptBarsH = 52;
 
-    // I/O Meters section
-    constexpr int metersY = 286;
-    constexpr int metersH = 86;
+    // I/O Meters section (10px shorter to compensate for extra header gap)
+    constexpr int metersY = 296;
+    constexpr int metersH = 76;
 }
 
 // ---------------------------------------------------------------------------
