@@ -67,24 +67,29 @@ void ShineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     juce::AudioBuffer<float> dryBuffer;
     dryBuffer.makeCopyOf(buffer);
 
-    // ML inference - always runs, outputs adaptive scales (0-1)
-    // Quiet passages -> scale near 1.0 (more boost)
-    // Loud passages  -> scale near 0.0-0.4 (less boost)
+    // ML inference — presence output drives the adaptive scale for both bands
+    // Model outputs presence in 0-6 range; any value ≥ 1.0 jlimits to 1.0 (full effect)
     const float* leftRead = buffer.getReadPointer(0);
     auto features = featureExtractor.extract(leftRead, numSamples);
     shine::ShineParams mlScales = modelInference.getSmoothedParams(features);
 
-    // Clamp to 0-1 (model outputs treated as adaptive scales)
+    // Presence adaptive scale: model output 0-6, clamped to 0-1
     float presScale = juce::jlimit(0.0f, 1.0f, mlScales.presence);
-    float airScale  = juce::jlimit(0.0f, 1.0f, mlScales.air);
 
-    adaptPresenceScale.store(presScale);
-    adaptAirScale.store(airScale);
+    // Adaptation meters: inverted dynamics (high when quiet, low when loud)
+    // Uses same -48 dBFS floor as the I/O meter display
+    float levelDb    = 20.0f * std::log10(juce::jmax(0.00001f, inLevel));
+    float adaptMeter = 1.0f - juce::jlimit(0.0f, 1.0f, (levelDb + 48.0f) / 48.0f);
+    adaptPresenceScale.store(adaptMeter);
+    adaptAirScale.store(adaptMeter);
 
-    // Final DSP params: knob value x adaptive scale
+    // Final DSP params: both bands use the presence adaptive scale
+    // Air previously used mlScales.air which stays near 0 (model bias ~0.03),
+    // making airKnob * ~0 ≈ 0 regardless of knob position.
+    // Using presScale gives air the same wiring quality as presence.
     shine::ShineParams scaledParams;
     scaledParams.presence = presenceKnob * presScale;
-    scaledParams.air      = airKnob      * airScale;
+    scaledParams.air      = airKnob      * presScale;
 
     dspChainL.setParams(scaledParams);
     dspChainR.setParams(scaledParams);
