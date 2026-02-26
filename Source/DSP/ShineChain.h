@@ -65,8 +65,8 @@ private:
         presenceLow.setGain(presGain * 2.0f);
         presenceHigh.setGain(presGain * 1.3f);
 
-        // Air: 0-1 maps to 0-12 dB shelf above 6kHz
-        airShelf.setGain(airGain * 12.0f);
+        // Air: 0-1 maps to 0-10 dB shelf above 6kHz
+        airShelf.setGain(airGain * 10.0f);
     }
 
     double sr = 48000.0;
