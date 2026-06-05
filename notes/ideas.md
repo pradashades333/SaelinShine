@@ -1,0 +1,1 @@
+- [2026-06-05 10:23:42] Follow-up idea 1 for the next cleanup pass.
