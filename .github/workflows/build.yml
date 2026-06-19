@@ -1,0 +1,56 @@
+name: Build Saelin Shine
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macOS
+            cmake_flags: -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          - os: windows-latest
+            name: Windows
+            cmake_flags: -A x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone JUCE 7.0.9
+        run: git clone --depth 1 --branch 7.0.9 https://github.com/juce-framework/JUCE.git SaelinShine/JUCE
+
+      - name: Configure
+        run: cmake -B SaelinShine/build -S SaelinShine ${{ matrix.cmake_flags }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build SaelinShine/build --config Release
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Saelin-Shine-VST3-${{ matrix.name }}
+          path: SaelinShine/build/SaelinShine_artefacts/Release/VST3/
+
+      - name: Upload AU (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Saelin-Shine-AU-macOS
+          path: SaelinShine/build/SaelinShine_artefacts/Release/AU/
+
+      - name: Upload Standalone
+        uses: actions/upload-artifact@v4
+        with:
+          name: Saelin-Shine-Standalone-${{ matrix.name }}
+          path: SaelinShine/build/SaelinShine_artefacts/Release/Standalone/

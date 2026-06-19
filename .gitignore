@@ -1,0 +1,36 @@
+# Build artifacts
+SaelinShine/build/
+SaelinShine-Source/build/
+
+# JUCE framework (cloned during CI)
+SaelinShine/JUCE/
+JUCE/
+
+# ML model files (removed in v2)
+*.pt
+SaelinShine/Source/ML/
+
+# Compiled plugins
+*.vst3
+*.component
+
+# Archives
+*.zip
+
+# IDE
+.vscode/
+*.vcxproj*
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# Other project directories (not part of SaelinShine)
+Saelin/
+Saelin-Customer/
+Saelin-Delivery/
+Saelin Development/
+SaelinShine-Source/
+saelin_shine/
