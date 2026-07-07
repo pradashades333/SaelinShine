@@ -16,6 +16,7 @@ juce_add_binary_data(SaelinShine_BinaryData SOURCES
 # Plugin target
 juce_add_plugin(SaelinShine
     COMPANY_NAME "Saelin Audio"
+    BUNDLE_ID "com.saelin.shine"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE

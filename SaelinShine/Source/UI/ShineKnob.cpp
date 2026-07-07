@@ -30,12 +30,12 @@ void ShineKnob::paint(juce::Graphics& g) {
 
     auto labelArea = bounds.removeFromBottom(valueHeight + labelHeight + 6);
     g.setColour(ShineColours::textMuted);
-    g.setFont(juce::Font("Segoe UI", 10.0f, juce::Font::plain));
+    g.setFont(juce::Font(juce::FontOptions("Segoe UI").withHeight(10.0f)));
     g.drawText(labelText, labelArea.removeFromTop(labelHeight),
                juce::Justification::centred, false);
 
     g.setColour(indicatorCol.withAlpha(0.85f));
-    g.setFont(juce::Font("Segoe UI", 11.0f, juce::Font::italic));
+    g.setFont(juce::Font(juce::FontOptions("Segoe UI").withHeight(11.0f).withStyle("Italic")));
     g.drawText(valueWord, labelArea, juce::Justification::centredTop, false);
 }
 
