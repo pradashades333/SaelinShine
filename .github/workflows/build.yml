@@ -29,8 +29,8 @@ jobs:
           AU=$(find build -name "*.component" -type d | head -1)
           xattr -cr "$VST3"; codesign --force --deep --sign - "$VST3"
           xattr -cr "$AU";   codesign --force --deep --sign - "$AU"
-          cd "$(dirname "$VST3")" && zip -r "$GITHUB_WORKSPACE/Shine-macOS-VST3.zip" "$(basename "$VST3")"
-          cd "$(dirname "$AU")"   && zip -r "$GITHUB_WORKSPACE/Shine-macOS-AU.zip"   "$(basename "$AU")"
+          ( cd "$(dirname "$VST3")" && zip -r "$GITHUB_WORKSPACE/Shine-macOS-VST3.zip" "$(basename "$VST3")" )
+          ( cd "$(dirname "$AU")"   && zip -r "$GITHUB_WORKSPACE/Shine-macOS-AU.zip"   "$(basename "$AU")" )
       - uses: actions/upload-artifact@v4
         with:
           name: Shine-macOS-VST3
