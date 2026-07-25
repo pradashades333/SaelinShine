@@ -7,17 +7,17 @@ ShineLookAndFeel::ShineLookAndFeel() {
     auto dmSansTf = juce::Typeface::createSystemTypefaceFor(
         BinaryData::DMSansRegular_ttf, BinaryData::DMSansRegular_ttfSize);
     if (dmSansTf != nullptr)
-        uiFont = juce::Font(dmSansTf).withHeight(11.0f);
+        uiFont = juce::Font(juce::FontOptions().withTypeface(dmSansTf).withHeight(11.0f));
     else
-        uiFont = juce::Font("Segoe UI", 11.0f, juce::Font::plain);
+        uiFont = juce::Font(juce::FontOptions("Segoe UI", 11.0f, juce::Font::plain));
 
     // Load Cormorant Garamond Medium (logo — spec: Cormorant Garamond 500)
     auto cgTf = juce::Typeface::createSystemTypefaceFor(
         BinaryData::CormorantGaramondMedium_ttf, BinaryData::CormorantGaramondMedium_ttfSize);
     if (cgTf != nullptr)
-        logoFont = juce::Font(cgTf).withHeight(20.0f);
+        logoFont = juce::Font(juce::FontOptions().withTypeface(cgTf).withHeight(20.0f));
     else
-        logoFont = juce::Font("Georgia", 20.0f, juce::Font::plain);
+        logoFont = juce::Font(juce::FontOptions("Georgia", 20.0f, juce::Font::plain));
 
     setColour(juce::ResizableWindow::backgroundColourId, ShineColours::bgDeep);
 }

@@ -3,8 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "DSP/ShineChain.h"
 #include "DSP/ShineParams.h"
-#include "ML/ShineFeatureExtractor.h"
-#include "ML/ShineModelInference.h"
+#include "DSP/SaelinAdaptiveEngine.h"
 
 class ShineAudioProcessor : public juce::AudioProcessor {
 public:
@@ -38,8 +37,6 @@ public:
     float getInputLevel()  const { return inputLevel.load(); }
     float getOutputLevel() const { return outputLevel.load(); }
 
-    // Raw ML adaptive scales (0-1) for the UI adaptation meters
-    // High when quiet (more boost), low when loud (less boost)
     float getAdaptPresenceScale() const { return adaptPresenceScale.load(); }
     float getAdaptAirScale()      const { return adaptAirScale.load(); }
 
@@ -51,8 +48,9 @@ private:
     shine::ShineChain dspChainL;
     shine::ShineChain dspChainR;
 
-    shine::ShineFeatureExtractor featureExtractor;
-    shine::ShineModelInference   modelInference;
+    shine::SaelinAdaptiveEngine sae;
+    int saePresenceIdx = -1;
+    int saeAirIdx = -1;
 
     std::atomic<float> inputLevel       {0.0f};
     std::atomic<float> outputLevel      {0.0f};

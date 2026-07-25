@@ -13,29 +13,37 @@ ShineAudioProcessor::~ShineAudioProcessor() = default;
 juce::AudioProcessorValueTreeState::ParameterLayout ShineAudioProcessor::createParameters() {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Presence knob: 0.0 - 6.0, default 3.0 (Vocal Clarity starting point)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID("presence", 1), "Presence",
-        juce::NormalisableRange<float>(0.0f, 6.0f, 0.01f), 3.0f));
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.67f));
 
-    // Air knob: 0.0 - 1.0, default 0.40 (Vocal Clarity starting point)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID("air", 1), "Air",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.40f));
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.89f));
 
-    // Bypass
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID("bypass", 1), "Bypass", false));
+
+    params.push_back(std::make_unique<juce::AudioParameterInt>(
+        juce::ParameterID("mode", 1), "Mode", 0, 1, 0));
 
     return { params.begin(), params.end() };
 }
 
 void ShineAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
-    juce::ignoreUnused(samplesPerBlock);
     dspChainL.prepare(sampleRate);
     dspChainR.prepare(sampleRate);
-    featureExtractor.reset();
-    modelInference.resetSmoothing();
+
+    sae.prepare(sampleRate, samplesPerBlock);
+
+    if (saePresenceIdx < 0) {
+        saePresenceIdx = sae.registerParameter(
+            "presence", 0.67f,
+            {0.0f, 1.0f}, 0.10f, true);
+        saeAirIdx = sae.registerParameter(
+            "air", 0.89f,
+            {0.0f, 1.0f}, 0.10f, true);
+    }
 }
 
 void ShineAudioProcessor::releaseResources() {}
@@ -52,7 +60,6 @@ void ShineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     float airKnob      = apvts.getRawParameterValue("air")->load();
     bool  bypass       = apvts.getRawParameterValue("bypass")->load() > 0.5f;
 
-    // Input level
     float inLevel = 0.0f;
     for (int ch = 0; ch < numChannels; ++ch)
         inLevel = juce::jmax(inLevel, buffer.getMagnitude(ch, 0, numSamples));
@@ -63,47 +70,30 @@ void ShineAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         return;
     }
 
-    // Dry buffer for safety
     juce::AudioBuffer<float> dryBuffer;
     dryBuffer.makeCopyOf(buffer);
 
-    // ML inference — presence output drives the adaptive scale for both bands
-    // Model outputs presence in 0-6 range; any value ≥ 1.0 jlimits to 1.0 (full effect)
+    sae.updateBaseValue(saePresenceIdx, presenceKnob);
+    sae.updateBaseValue(saeAirIdx, airKnob);
+
     const float* leftRead = buffer.getReadPointer(0);
-    auto features = featureExtractor.extract(leftRead, numSamples);
-    shine::ShineParams mlScales = modelInference.getSmoothedParams(features);
+    sae.process(leftRead, numSamples);
 
-    // Presence adaptive scale: model output 0-6, clamped to 0-1
-    float presScale = juce::jlimit(0.0f, 1.0f, mlScales.presence);
+    const float* presenceMod = sae.getModulatedBuffer(saePresenceIdx);
+    const float* airMod      = sae.getModulatedBuffer(saeAirIdx);
 
-    // Adaptation meters: inverted dynamics (high when quiet, low when loud)
-    // Uses same -48 dBFS floor as the I/O meter display
-    float levelDb    = 20.0f * std::log10(juce::jmax(0.00001f, inLevel));
-    float adaptMeter = 1.0f - juce::jlimit(0.0f, 1.0f, (levelDb + 48.0f) / 48.0f);
-    adaptPresenceScale.store(adaptMeter);
-    adaptAirScale.store(adaptMeter);
-
-    // Final DSP params: both bands use the presence adaptive scale
-    // Air previously used mlScales.air which stays near 0 (model bias ~0.03),
-    // making airKnob * ~0 ≈ 0 regardless of knob position.
-    // Using presScale gives air the same wiring quality as presence.
-    shine::ShineParams scaledParams;
-    scaledParams.presence = presenceKnob * presScale;
-    scaledParams.air      = airKnob      * presScale;
-
-    dspChainL.setParams(scaledParams);
-    dspChainR.setParams(scaledParams);
+    float intentLvl = sae.getIntentLevel();
+    float invertedIntent = 1.0f - intentLvl;
+    adaptPresenceScale.store(invertedIntent);
+    adaptAirScale.store(invertedIntent);
 
     float* leftCh  = buffer.getWritePointer(0);
     float* rightCh = numChannels > 1 ? buffer.getWritePointer(1) : nullptr;
 
-    for (int i = 0; i < numSamples; ++i) {
-        leftCh[i] = dspChainL.process(leftCh[i]);
-        if (rightCh)
-            rightCh[i] = dspChainR.process(rightCh[i]);
-    }
+    dspChainL.processBlock(leftCh, numSamples, presenceMod, airMod);
+    if (rightCh)
+        dspChainR.processBlock(rightCh, numSamples, presenceMod, airMod);
 
-    // Safety: restore dry if output is NaN/inf
     bool outputBad = false;
     for (int ch = 0; ch < numChannels && !outputBad; ++ch) {
         const float* data = buffer.getReadPointer(ch);

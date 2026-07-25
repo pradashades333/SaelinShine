@@ -2,60 +2,60 @@ name: Build Saelin Shine
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [shine-v2-juce8]
   workflow_dispatch:
 
 jobs:
-  build-mac:
+  build-macos:
     runs-on: macos-14
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
+      - uses: actions/checkout@v4
+      - name: Fetch JUCE 8.0.12
+        run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git JUCE
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
-
-      - name: Build
-        run: cmake --build build --config Release --parallel
-
-      - name: Zip VST3
-        run: cd build/SaelinShine_artefacts/Release/VST3 && zip -r ../../../../SaelinShine-macOS-VST3.zip "Saelin Shine.vst3"
-
-      - name: Zip AU
-        run: cd build/SaelinShine_artefacts/Release/AU && zip -r ../../../../SaelinShine-macOS-AU.zip "Saelin Shine.component"
-
-      - name: Upload VST3
-        uses: actions/upload-artifact@v4
+        run: |
+          cmake -B build -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DJUCE_ROOT="$GITHUB_WORKSPACE/JUCE" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="11.0"
+      - name: Build VST3
+        run: cmake --build build --config Release --target SaelinShine_VST3 -j$(sysctl -n hw.ncpu)
+      - name: Build AU
+        run: cmake --build build --config Release --target SaelinShine_AU -j$(sysctl -n hw.ncpu)
+      - name: Sign + zip
+        run: |
+          VST3=$(find build -name "*.vst3" -type d | head -1)
+          AU=$(find build -name "*.component" -type d | head -1)
+          xattr -cr "$VST3"; codesign --force --deep --sign - "$VST3"
+          xattr -cr "$AU";   codesign --force --deep --sign - "$AU"
+          cd "$(dirname "$VST3")" && zip -r "$GITHUB_WORKSPACE/Shine-macOS-VST3.zip" "$(basename "$VST3")"
+          cd "$(dirname "$AU")"   && zip -r "$GITHUB_WORKSPACE/Shine-macOS-AU.zip"   "$(basename "$AU")"
+      - uses: actions/upload-artifact@v4
         with:
-          name: SaelinShine-macOS-VST3
-          path: SaelinShine-macOS-VST3.zip
-
-      - name: Upload AU
-        uses: actions/upload-artifact@v4
+          name: Shine-macOS-VST3
+          path: Shine-macOS-VST3.zip
+      - uses: actions/upload-artifact@v4
         with:
-          name: SaelinShine-macOS-AU
-          path: SaelinShine-macOS-AU.zip
+          name: Shine-macOS-AU
+          path: Shine-macOS-AU.zip
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
+      - uses: actions/checkout@v4
+      - name: Fetch JUCE 8.0.12
+        run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git JUCE
       - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Upload VST3
-        uses: actions/upload-artifact@v4
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DJUCE_ROOT="$env:GITHUB_WORKSPACE/JUCE"
+      - name: Build VST3
+        run: cmake --build build --config Release --target SaelinShine_VST3
+      - name: Package
+        shell: bash
+        run: |
+          VST3=$(find build -name "*.vst3" -type d | head -1)
+          cd "$(dirname "$VST3")" && 7z a "$GITHUB_WORKSPACE/Shine-Windows-VST3.zip" "$(basename "$VST3")"
+      - uses: actions/upload-artifact@v4
         with:
-          name: SaelinShine-Windows-VST3
-          path: build/SaelinShine_artefacts/Release/VST3/Saelin Shine.vst3
+          name: Shine-Windows-VST3
+          path: Shine-Windows-VST3.zip

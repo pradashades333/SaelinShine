@@ -41,7 +41,6 @@ private:
     float y1 = 0.0f, y2 = 0.0f;
 };
 
-// 2nd order highpass at 60Hz to remove rumble
 class HighPassFilter : public BiquadFilter {
 public:
     void configure(float cutoff = 60.0f) {
@@ -61,7 +60,6 @@ public:
     }
 };
 
-// Peaking EQ bell filter for presence bands
 class PresenceBandFilter : public BiquadFilter {
 public:
     void configure(float frequency, float q) {
@@ -91,13 +89,17 @@ public:
 
 private:
     float freq = 2500.0f;
-    float Q = 0.8f;
+    float Q = 1.0f;
     float lastGainDb = -999.0f;
 };
 
-// High shelf filter for air/brightness (6kHz corner)
 class AirShelfFilter : public BiquadFilter {
 public:
+    void configure(float freq, float q) {
+        frequency = freq;
+        Q = q;
+    }
+
     void setGain(float gainDb) {
         if (std::abs(gainDb - lastGainDb) < 0.005f) return;
         lastGainDb = gainDb;
@@ -106,7 +108,7 @@ public:
         float w0 = 2.0f * static_cast<float>(M_PI) * frequency / static_cast<float>(sampleRate);
         float cosw0 = std::cos(w0);
         float sinw0 = std::sin(w0);
-        float alpha = sinw0 / 2.0f * std::sqrt(2.0f);
+        float alpha = sinw0 / (2.0f * Q);
 
         float _b0 = A * ((A + 1.0f) + (A - 1.0f) * cosw0 + 2.0f * std::sqrt(A) * alpha);
         float _b1 = -2.0f * A * ((A - 1.0f) + (A + 1.0f) * cosw0);
@@ -120,6 +122,7 @@ public:
 
 private:
     float frequency = 6000.0f;
+    float Q = 0.5f;
     float lastGainDb = -999.0f;
 };
 

@@ -1,9 +1,10 @@
 #include "ShineKnob.h"
+#include "../DSP/ShineParams.h"
 
 namespace shine {
 
-ShineKnob::ShineKnob(const juce::String& label, juce::Colour indicatorColour, int numDecimals)
-    : labelText(label.toUpperCase()), indicatorCol(indicatorColour), decimals(numDecimals) {
+ShineKnob::ShineKnob(const juce::String& label, juce::Colour indicatorColour, ParamType type)
+    : labelText(label.toUpperCase()), indicatorCol(indicatorColour), paramType(type) {
 
     slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
     slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -11,7 +12,6 @@ ShineKnob::ShineKnob(const juce::String& label, juce::Colour indicatorColour, in
                                 juce::MathConstants<float>::pi * 2.75f,
                                 true);
 
-    // Tell LookAndFeel which colour to use for this knob's arc/indicator
     slider.setColour(juce::Slider::rotarySliderFillColourId, indicatorColour);
     slider.setColour(juce::Slider::thumbColourId,            indicatorColour);
 
@@ -23,21 +23,20 @@ ShineKnob::ShineKnob(const juce::String& label, juce::Colour indicatorColour, in
 void ShineKnob::paint(juce::Graphics& g) {
     auto bounds = getLocalBounds();
 
-    // Value text
-    double val = slider.getValue();
-    juce::String valueStr = juce::String(val, decimals);
+    float val = static_cast<float>(slider.getValue());
+    const char* valueWord = (paramType == ParamType::Presence)
+                            ? getPresenceWord(val)
+                            : getAirWord(val);
 
-    // Label
     auto labelArea = bounds.removeFromBottom(valueHeight + labelHeight + 6);
     g.setColour(ShineColours::textMuted);
-    g.setFont(juce::Font("Segoe UI", 10.0f, juce::Font::plain));
+    g.setFont(juce::Font(juce::FontOptions("Segoe UI", 10.0f, juce::Font::plain)));
     g.drawText(labelText, labelArea.removeFromTop(labelHeight),
                juce::Justification::centred, false);
 
-    // Value
     g.setColour(indicatorCol.withAlpha(0.85f));
-    g.setFont(juce::Font("Segoe UI", 11.0f, juce::Font::plain));
-    g.drawText(valueStr, labelArea, juce::Justification::centredTop, false);
+    g.setFont(juce::Font(juce::FontOptions("Segoe UI", "Italic", 11.0f)));
+    g.drawText(valueWord, labelArea, juce::Justification::centredTop, false);
 }
 
 void ShineKnob::resized() {

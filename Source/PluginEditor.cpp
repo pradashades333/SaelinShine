@@ -3,46 +3,35 @@
 
 using namespace shine::ShineColours;
 
-// ---------------------------------------------------------------------------
-// Layout constants — 520 x 380 px (spec dimensions)
-// ---------------------------------------------------------------------------
 namespace L {
     constexpr int W = 520;
     constexpr int H = 380;
 
-    // Header
     constexpr int headerH = 50;
 
-    // Tabs — extra breathing room below header line
     constexpr int tabY   = 64;
     constexpr int tabH   = 28;
     constexpr int tabW   = 148;
     constexpr int tabGap = 12;
 
-    // "• ADAPTIVE PROCESSING" label
     constexpr int adaptLabelY = 96;
     constexpr int adaptLabelH = 16;
 
-    // Knob area — spec: 80px outer diameter knobs, 40px label area below
     constexpr int knobAreaY = 114;
-    constexpr int knobAreaH = 120;  // 80px knob + 40px labels
+    constexpr int knobAreaH = 120;
     constexpr int knobW     = 130;
     constexpr int knobGap   = 24;
 
-    // Separator lines
     constexpr int sep1Y = 236;
     constexpr int sep2Y = 293;
 
-    // Adaptation bars section
     constexpr int adaptBarsY = 239;
     constexpr int adaptBarsH = 52;
 
-    // I/O Meters section (10px shorter to compensate for extra header gap)
     constexpr int metersY = 296;
     constexpr int metersH = 76;
 }
 
-// ---------------------------------------------------------------------------
 ShineAudioProcessorEditor::ShineAudioProcessorEditor(ShineAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p) {
 
@@ -69,9 +58,8 @@ ShineAudioProcessorEditor::ShineAudioProcessorEditor(ShineAudioProcessor& p)
     bypassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         audioProcessor.getAPVTS(), "bypass", bypassButton);
 
-    float pres = audioProcessor.getAPVTS().getRawParameterValue("presence")->load();
-    float air  = audioProcessor.getAPVTS().getRawParameterValue("air")->load();
-    selectedTab = (std::abs(pres - 4.5f) < 0.05f && std::abs(air - 0.20f) < 0.05f) ? 1 : 0;
+    int mode = static_cast<int>(audioProcessor.getAPVTS().getRawParameterValue("mode")->load());
+    selectedTab = (mode == 1) ? 1 : 0;
     updateTabStates();
 
     startTimerHz(30);
@@ -83,16 +71,16 @@ ShineAudioProcessorEditor::~ShineAudioProcessorEditor() {
     stopTimer();
 }
 
-// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::applyPreset(int idx) {
     selectedTab = idx;
     updateTabStates();
+    audioProcessor.getAPVTS().getParameterAsValue("mode").setValue(idx);
     if (idx == 0) {
-        audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(3.0);
-        audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.40);
+        audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(0.67);
+        audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.89);
     } else {
-        audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(4.5);
-        audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.20);
+        audioProcessor.getAPVTS().getParameterAsValue("presence").setValue(0.89);
+        audioProcessor.getAPVTS().getParameterAsValue("air").setValue(0.44);
     }
 }
 
@@ -103,7 +91,6 @@ void ShineAudioProcessorEditor::updateTabStates() {
     tabAcousticDetail.repaint();
 }
 
-// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::timerCallback() {
     inputLevel     = audioProcessor.getInputLevel();
     outputLevel    = audioProcessor.getOutputLevel();
@@ -112,12 +99,10 @@ void ShineAudioProcessorEditor::timerCallback() {
     repaint();
 }
 
-// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
     const int W = getWidth();
     const int H = getHeight();
 
-    // ---- Background --------------------------------------------------------
     g.fillAll(bgDeep);
 
     juce::ColourGradient glow(accentGold.withAlpha(0.03f),
@@ -127,7 +112,6 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
     g.setGradientFill(glow);
     g.fillRect(getLocalBounds());
 
-    // ---- Header ------------------------------------------------------------
     g.setColour(juce::Colour(0xff070605));
     g.fillRect(0, 0, W, L::headerH);
     g.setColour(accentGold.withAlpha(0.15f));
@@ -141,7 +125,6 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
     g.setFont(lookAndFeel.getUIFont(10.0f));
     g.drawText("SHINE", 124, 18, 52, 16, juce::Justification::centredLeft);
 
-    // ---- "• ADAPTIVE PROCESSING" -------------------------------------------
     const float dotX = W * 0.5f - 88.0f;
     const float dotY = L::adaptLabelY + L::adaptLabelH * 0.5f - 2.5f;
     g.setColour(accentGold);
@@ -153,17 +136,14 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
                static_cast<int>(dotX) + 9, L::adaptLabelY,
                180, L::adaptLabelH, juce::Justification::centredLeft);
 
-    // ---- Separator lines ---------------------------------------------------
     g.setColour(bgCard.withAlpha(0.8f));
     g.fillRect(0, L::sep1Y, W, 1);
     g.fillRect(0, L::sep2Y, W, 1);
 
-    // ---- ADAPTATION --------------------------------------------------------
     g.setColour(textMuted);
     g.setFont(lookAndFeel.getUIFont(8.5f));
     g.drawText("ADAPTATION", 0, L::adaptBarsY + 2, W, 14, juce::Justification::centred);
 
-    // Two bars side by side (PRESENCE left, AIR right)
     const int barW      = 110;
     const int barH      = 5;
     const int barGapX   = 20;
@@ -192,11 +172,10 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
     drawAdaptBar(presBarX, adaptPresScale, accentGold, "PRESENCE");
     drawAdaptBar(airBarX,  adaptAirScale,  accentAir,  "AIR");
 
-    // ---- I/O Meters (staircase bars) ---------------------------------------
     const int bh[6]   = { 16, 22, 28, 36, 45, 56 };
-    const int bw      = 4;   // spec: 4px bar width
-    const int bgap    = 3;   // spec: 3px gap
-    const int meterW  = 6 * bw + 5 * bgap;         // 39px
+    const int bw      = 4;
+    const int bgap    = 3;
+    const int meterW  = 6 * bw + 5 * bgap;
     const int meterBottomY = L::metersY + L::metersH - 16;
 
     auto dbToNorm = [](float level) -> float {
@@ -231,32 +210,26 @@ void ShineAudioProcessorEditor::paint(juce::Graphics& g) {
                    juce::Justification::centred);
     };
 
-    // Closer to centre per user request
     const int inMeterX  = W / 2 - 75 - meterW / 2;
     const int outMeterX = W / 2 + 75 - meterW / 2;
 
     drawMeter(inMeterX,  inputLevel,  "INPUT");
     drawMeter(outMeterX, outputLevel, "OUTPUT");
 
-    // ---- Window border — spec: 1px solid rgba(201,168,102,0.2), 12px radius --
     g.setColour(juce::Colour(0xffc9a866).withAlpha(0.2f));
     g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), 12.0f, 1.0f);
 }
 
-// ---------------------------------------------------------------------------
 void ShineAudioProcessorEditor::resized() {
     const int W = getWidth();
 
-    // Bypass button — top right
     bypassButton.setBounds(W - 46, 11, 28, 28);
 
-    // Tabs — centred
     const int tabRowW   = L::tabW * 2 + L::tabGap;
     const int tabStartX = (W - tabRowW) / 2;
     tabVocalClarity.setBounds  (tabStartX,                      L::tabY, L::tabW, L::tabH);
     tabAcousticDetail.setBounds(tabStartX + L::tabW + L::tabGap, L::tabY, L::tabW, L::tabH);
 
-    // Knobs — centred pair
     const int twoKnobsW  = L::knobW * 2 + L::knobGap;
     const int knobStartX = (W - twoKnobsW) / 2;
     presenceKnob.setBounds(knobStartX,                        L::knobAreaY, L::knobW, L::knobAreaH);

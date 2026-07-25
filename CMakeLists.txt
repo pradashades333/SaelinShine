@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.22)
-project(SaelinShine VERSION 1.0.0)
+project(SaelinShine VERSION 2.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# JUCE (git submodule)
-add_subdirectory(JUCE)
+# JUCE — overridable root so CI/local can build against JUCE 8.
+set(JUCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/JUCE" CACHE PATH "Path to JUCE")
+add_subdirectory("${JUCE_ROOT}" "${CMAKE_BINARY_DIR}/JUCE")
 
 # Embedded font resources
 juce_add_binary_data(SaelinShine_BinaryData SOURCES
@@ -16,6 +17,7 @@ juce_add_binary_data(SaelinShine_BinaryData SOURCES
 # Plugin target
 juce_add_plugin(SaelinShine
     COMPANY_NAME "Saelin Audio"
+    BUNDLE_ID "com.saelin.shine"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -36,9 +38,8 @@ target_sources(SaelinShine PRIVATE
     Source/DSP/ShineParams.h
     Source/DSP/BiquadFilter.h
     Source/DSP/ShineChain.h
-    Source/ML/ShineFeatureExtractor.h
-    Source/ML/ShineModelInference.h
-    Source/ML/ShineModelWeights.h
+    Source/DSP/SaelinAdaptiveEngine.h
+    Source/DSP/PeakLimiter.h
     Source/UI/ShineLookAndFeel.h
     Source/UI/ShineLookAndFeel.cpp
     Source/UI/ShineKnob.h
@@ -48,7 +49,6 @@ target_sources(SaelinShine PRIVATE
 target_include_directories(SaelinShine PRIVATE
     Source
     Source/DSP
-    Source/ML
     Source/UI
 )
 
