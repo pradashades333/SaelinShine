@@ -1,13 +1,11 @@
 #pragma once
 
-#include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_gui_basics/juce_gui_basics.h>
+#include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "UI/ShineLookAndFeel.h"
-#include "UI/ShineKnob.h"
 
 class ShineAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                   private juce::Timer {
+                                  private juce::Timer
+{
 public:
     explicit ShineAudioProcessorEditor(ShineAudioProcessor&);
     ~ShineAudioProcessorEditor() override;
@@ -16,36 +14,57 @@ public:
     void resized() override;
 
 private:
+    class ShineLookAndFeel;
+    class ShineSizeConstrainer;
+
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+
+    ShineAudioProcessor& processorRef;
+    std::unique_ptr<ShineLookAndFeel> lookAndFeel;
+    std::unique_ptr<ShineSizeConstrainer> sizeConstrainer;
+
+    // Preset tabs (2 modes: Vocal Clarity, Acoustic Detail)
+    std::array<juce::TextButton, 2> modeButtons;
+    int selectedMode { 0 };  // 0 = Vocal Clarity, 1 = Acoustic Detail
+
+    // Knobs
+    juce::Slider presenceSlider;
+    juce::Slider airSlider;
+
+    // Labels
+    juce::Label brandLabel;
+    juce::Label productLabel;
+    juce::Label adaptiveLabel;
+    juce::Label presenceLabel;
+    juce::Label airLabel;
+    juce::Label presenceValueLabel;
+    juce::Label airValueLabel;
+    juce::Label adaptationTitleLabel;
+    juce::Label adaptationPresenceLabel;
+    juce::Label adaptationAirLabel;
+    juce::Label outputLabel;
+
+    // Parameter attachments
+    std::unique_ptr<SliderAttachment> presenceAttachment;
+    std::unique_ptr<SliderAttachment> airAttachment;
+
+    // Layout rectangles
+    juce::Rectangle<int> headerBounds;
+    juce::Rectangle<int> tabsBounds;
+    juce::Rectangle<int> knobsBounds;
+    juce::Rectangle<int> adaptationBounds;
+    juce::Rectangle<int> outputBounds;
+
+    float pulsePhase { 0.0f };
+    float displayedOutputLevel { 0.0f };
+
     void timerCallback() override;
-    void applyPreset(int presetIndex);  // 0 = Vocal Clarity, 1 = Acoustic Detail
-    void updateTabStates();
+    void applyPreset(int idx);
+    void syncModeButtons();
+    void updateDynamicLabels();
 
-    ShineAudioProcessor& audioProcessor;
-
-    shine::ShineLookAndFeel lookAndFeel;
-
-    // Knobs (presence = gold, air = muted blue)
-    shine::ShineKnob presenceKnob { "Presence", shine::ShineColours::accentGold, 1 };
-    shine::ShineKnob airKnob      { "Air",      shine::ShineColours::accentAir,  2 };
-
-    juce::ToggleButton bypassButton;
-
-    // Preset tabs — pill style, toggle state drives highlight
-    juce::TextButton tabVocalClarity   { "Vocal Clarity"   };
-    juce::TextButton tabAcousticDetail { "Acoustic Detail" };
-
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> presenceAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> airAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
-
-    // Values read from processor each timer tick
-    float inputLevel     = 0.0f;
-    float outputLevel    = 0.0f;
-    float adaptPresScale = 0.5f;
-    float adaptAirScale  = 0.5f;
-
-    // Which tab is visually active (-1 = none, 0 = Vocal Clarity, 1 = Acoustic Detail)
-    int selectedTab = 0;
+    static juce::String getPresenceWord(float value);
+    static juce::String getAirWord(float value);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ShineAudioProcessorEditor)
 };

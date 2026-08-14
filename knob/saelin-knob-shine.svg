@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="Saelin knob">
+  <defs>
+    <radialGradient id="body" cx="42%" cy="33%" r="74%">
+      <stop offset="0%" stop-color="#fffdf8"></stop>
+      <stop offset="50%" stop-color="#f7f0e0"></stop>
+      <stop offset="100%" stop-color="#e3d7c0"></stop>
+    </radialGradient>
+    <radialGradient id="sheen" cx="40%" cy="27%" r="48%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"></stop>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"></stop>
+    </radialGradient>
+    <filter id="drop" x="-45%" y="-45%" width="190%" height="190%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#6a5232" flood-opacity="0.22"></feDropShadow>
+    </filter>
+  </defs>
+  <g filter="url(#drop)">
+    <circle cx="60" cy="60" r="45" fill="url(#body)" stroke="#1c1813" stroke-opacity="0.10" stroke-width="1.2"></circle>
+  </g>
+  <circle cx="60" cy="60" r="45" fill="url(#sheen)"></circle>
+  <circle cx="60" cy="60" r="37" fill="none" stroke="#1c1813" stroke-opacity="0.06" stroke-width="1"></circle>
+  <g stroke="#D4A042" fill="none">
+    <line x1="60" y1="20" x2="60" y2="40" stroke-width="3.4" stroke-linecap="round"></line>
+    <circle cx="60" cy="60" r="4.6" stroke-width="2.2"></circle>
+  </g>
+</svg>

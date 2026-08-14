@@ -1,6 +1,4 @@
 build/
-.vs/
-.vscode/
-*.user
-CMakeSettings.json
-out/
+build_*/
+JUCE/
+.DS_Store

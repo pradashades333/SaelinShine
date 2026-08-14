@@ -1,16 +1,23 @@
 cmake_minimum_required(VERSION 3.22)
-project(SaelinShine VERSION 1.0.0)
+project(SaelinShine VERSION 2.0.0)
+
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Universal binary" FORCE)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # JUCE (git submodule)
-add_subdirectory(JUCE)
+set(JUCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/JUCE" CACHE PATH "Path to JUCE")
+add_subdirectory("${JUCE_ROOT}" "${CMAKE_BINARY_DIR}/JUCE")
 
 # Embedded font resources
 juce_add_binary_data(SaelinShine_BinaryData SOURCES
     Resources/fonts/CormorantGaramond-Medium.ttf
     Resources/fonts/DMSans-Regular.ttf
+    knob/saelin-knob-shine.svg
+    knob/saelin-knob-template.svg
 )
 
 # Plugin target
@@ -23,10 +30,13 @@ juce_add_plugin(SaelinShine
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
     PLUGIN_MANUFACTURER_CODE Sael
+    BUNDLE_ID "com.saelin.shine"
     PLUGIN_CODE Sshn
     FORMATS AU VST3 Standalone
     PRODUCT_NAME "Saelin Shine"
 )
+
+juce_generate_juce_header(SaelinShine)
 
 target_sources(SaelinShine PRIVATE
     Source/PluginProcessor.cpp
@@ -36,20 +46,13 @@ target_sources(SaelinShine PRIVATE
     Source/DSP/ShineParams.h
     Source/DSP/BiquadFilter.h
     Source/DSP/ShineChain.h
-    Source/ML/ShineFeatureExtractor.h
-    Source/ML/ShineModelInference.h
-    Source/ML/ShineModelWeights.h
-    Source/UI/ShineLookAndFeel.h
-    Source/UI/ShineLookAndFeel.cpp
-    Source/UI/ShineKnob.h
-    Source/UI/ShineKnob.cpp
+    Source/DSP/SaelinAdaptiveEngine.h
+    Source/DSP/PeakLimiter.h
 )
 
 target_include_directories(SaelinShine PRIVATE
     Source
     Source/DSP
-    Source/ML
-    Source/UI
 )
 
 target_compile_definitions(SaelinShine PUBLIC

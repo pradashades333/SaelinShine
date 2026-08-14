@@ -2,29 +2,24 @@
 
 namespace shine {
 
-// Two ML outputs from the Shine model
 struct ShineParams {
-    float presence = 0.0f;   // 0.0-6.0: Dual-band presence boost
-    float air = 0.0f;        // 0.0-1.0: High shelf air boost
+    float presence = 0.5f;
+    float air = 0.5f;
 };
 
-// ---------------------------------------------------------------
-// PRESETS — easy to update, no DSP/GUI rebuild needed
-// ---------------------------------------------------------------
 enum class Preset {
-    Auto         = 0,  // ML-driven (adaptive)
-    VocalClarity = 1,  // Fixed: P=3.0 / A=0.40  (FINAL)
-    AcousticDetail = 2 // Fixed: P=4.5 / A=0.20  (PROVISIONAL — awaiting client sign-off)
+    VocalClarity   = 0,
+    AcousticDetail = 1
 };
 
 inline ShineParams getPresetParams(Preset preset) {
     switch (preset) {
         case Preset::VocalClarity:
-            return { 3.0f, 0.40f };
+            return { 0.67f, 0.89f };
         case Preset::AcousticDetail:
-            return { 4.5f, 0.20f };  // <-- UPDATE THIS when client confirms final values
+            return { 0.89f, 0.44f };
         default:
-            return { 0.0f, 0.0f };   // Auto: ML drives everything
+            return { 0.5f, 0.5f };
     }
 }
 
@@ -32,8 +27,31 @@ inline const char* getPresetName(Preset preset) {
     switch (preset) {
         case Preset::VocalClarity:   return "Vocal Clarity";
         case Preset::AcousticDetail: return "Acoustic Detail";
-        default:                     return "Auto";
+        default:                     return "Vocal Clarity";
     }
+}
+
+inline float knobToScaler(float knob) {
+    if (knob <= 0.5f)
+        return knob * 2.0f;
+    else
+        return 1.0f + (knob - 0.5f) * 0.3f;
+}
+
+inline const char* getPresenceWord(float value) {
+    if (value < 0.2f) return "Settled";
+    if (value < 0.4f) return "Clear";
+    if (value < 0.6f) return "Forward";
+    if (value < 0.8f) return "Lifted";
+    return "Crisp";
+}
+
+inline const char* getAirWord(float value) {
+    if (value < 0.2f) return "Close";
+    if (value < 0.4f) return "Natural";
+    if (value < 0.6f) return "Balanced";
+    if (value < 0.8f) return "Open";
+    return "Airy";
 }
 
 } // namespace shine
