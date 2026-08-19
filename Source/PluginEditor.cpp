@@ -25,6 +25,27 @@ float toRadians(float degrees)
 
 juce::Font makeFont(const juce::String& name, float size, int styleFlags = juce::Font::plain, float kerning = 0.0f)
 {
+    // Load the fonts EMBEDDED in the binary rather than asking the OS for an installed
+    // font by name — a name lookup only works where the font happens to be installed
+    // (fine on the dev Mac, blank fallback on a clean Windows machine). "Newsreader" is
+    // not embedded, so its serif value labels fall back to the embedded Cormorant.
+    static const juce::Typeface::Ptr dmSans = juce::Typeface::createSystemTypefaceFor(
+        BinaryData::DMSansRegular_ttf, (size_t) BinaryData::DMSansRegular_ttfSize);
+    static const juce::Typeface::Ptr cormorant = juce::Typeface::createSystemTypefaceFor(
+        BinaryData::CormorantGaramondMedium_ttf, (size_t) BinaryData::CormorantGaramondMedium_ttfSize);
+
+    juce::Typeface::Ptr tf;
+    if (name == "DM Sans")                                    tf = dmSans;
+    else if (name == "Cormorant Garamond" || name == "Newsreader") tf = cormorant;
+
+    if (tf != nullptr)
+    {
+        juce::Font f (juce::FontOptions().withTypeface(tf).withHeight(size).withKerningFactor(kerning));
+        if ((styleFlags & juce::Font::bold)   != 0) f = f.boldened();
+        if ((styleFlags & juce::Font::italic) != 0) f = f.italicised();
+        return f;
+    }
+
     return juce::Font(juce::FontOptions(name, size, styleFlags).withKerningFactor(kerning));
 }
 
