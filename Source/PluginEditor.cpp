@@ -87,7 +87,8 @@ public:
 
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override
     {
-        return makeSans((float) buttonHeight * 0.40f, false, 0.16f);
+        // Bold for legibility — the mode tabs read too thin otherwise.
+        return makeSans((float) buttonHeight * 0.40f, true, 0.16f);
     }
 
     void drawButtonBackground(juce::Graphics& /*g*/, juce::Button& /*button*/,
